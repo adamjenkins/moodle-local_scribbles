@@ -1,0 +1,30 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_scribbles/navbar_button
+
+    The navbar button (next to the edit mode switch) that opens scribbles.
+
+    Example context (json):
+    {}
+}}
+<div class="local_scribbles-navbar d-flex align-items-center">
+    <button type="button" class="btn btn-icon local_scribbles-navbutton" data-action="local_scribbles-open"
+            title="{{#str}}openscribbles, local_scribbles{{/str}}" aria-label="{{#str}}openscribbles, local_scribbles{{/str}}">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M16 3l5 5-10 10H6v-5z"/><path d="M13.5 5.5l5 5"/><path d="M3 21c1.5-1.5 3 1.5 4.5 0s3 1.5 4.5 0"/></svg>
+    </button>
+</div>

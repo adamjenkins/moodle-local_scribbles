@@ -1,0 +1,117 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_scribbles/overlay
+
+    The transparent drawing layer, its toolbar and the close button.
+
+    Context variables required for this template:
+    * listurl - URL of the saved scribbles page
+
+    Example context (json):
+    {
+        "listurl": "https://example.com/local/scribbles/index.php"
+    }
+}}
+<div class="local_scribbles-root" data-region="local_scribbles-root" role="dialog" aria-label="{{#str}}pluginname, local_scribbles{{/str}}">
+    <canvas class="local_scribbles-canvas" data-region="canvas"></canvas>
+
+    <div class="local_scribbles-toolbar" data-region="toolbar" role="toolbar" aria-label="{{#str}}tools, local_scribbles{{/str}}">
+        <div class="local_scribbles-group" role="group" aria-label="{{#str}}tools, local_scribbles{{/str}}">
+            <button type="button" class="btn btn-sm local_scribbles-tool" data-tool="pen" aria-pressed="true"
+                    title="{{#str}}toolpen, local_scribbles{{/str}}" aria-label="{{#str}}toolpen, local_scribbles{{/str}}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M16 3l5 5L9 20H4v-5z"/><path d="M13.5 5.5l5 5"/></svg>
+            </button>
+            <button type="button" class="btn btn-sm local_scribbles-tool" data-tool="highlighter" aria-pressed="false"
+                    title="{{#str}}toolhighlighter, local_scribbles{{/str}}" aria-label="{{#str}}toolhighlighter, local_scribbles{{/str}}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 3l5 5-8 8H7v-5z"/><path d="M7 16l-3 3h5"/><path d="M13 21h8" stroke-width="3.5" opacity=".45"/></svg>
+            </button>
+            <button type="button" class="btn btn-sm local_scribbles-tool" data-tool="text" aria-pressed="false"
+                    title="{{#str}}tooltext, local_scribbles{{/str}}" aria-label="{{#str}}tooltext, local_scribbles{{/str}}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 7V4h14v3"/><path d="M12 4v16"/><path d="M9 20h6"/></svg>
+            </button>
+            <button type="button" class="btn btn-sm local_scribbles-tool" data-tool="box" aria-pressed="false"
+                    title="{{#str}}toolbox, local_scribbles{{/str}}" aria-label="{{#str}}toolbox, local_scribbles{{/str}}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="4" y="5" width="16" height="14" rx="1"/></svg>
+            </button>
+            <button type="button" class="btn btn-sm local_scribbles-tool" data-tool="ellipse" aria-pressed="false"
+                    title="{{#str}}toolellipse, local_scribbles{{/str}}" aria-label="{{#str}}toolellipse, local_scribbles{{/str}}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><ellipse cx="12" cy="12" rx="9" ry="6.5"/></svg>
+            </button>
+            <button type="button" class="btn btn-sm local_scribbles-tool" data-tool="eraser" aria-pressed="false"
+                    title="{{#str}}tooleraser, local_scribbles{{/str}}" aria-label="{{#str}}tooleraser, local_scribbles{{/str}}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 21h13"/><path d="M3.5 14.5l9-9a2 2 0 0 1 2.8 0l3.2 3.2a2 2 0 0 1 0 2.8L11 19H7.5z"/><path d="M8 10l6 6"/></svg>
+            </button>
+        </div>
+
+        <div class="local_scribbles-group" role="group" aria-label="{{#str}}colour, local_scribbles{{/str}}">
+            <button type="button" class="local_scribbles-swatch" data-colour="#e03131" aria-pressed="true" style="background-color: #e03131;"
+                    title="{{#str}}colourred, local_scribbles{{/str}}" aria-label="{{#str}}colourred, local_scribbles{{/str}}"></button>
+            <button type="button" class="local_scribbles-swatch" data-colour="#f59f00" aria-pressed="false" style="background-color: #f59f00;"
+                    title="{{#str}}colourorange, local_scribbles{{/str}}" aria-label="{{#str}}colourorange, local_scribbles{{/str}}"></button>
+            <button type="button" class="local_scribbles-swatch" data-colour="#ffe066" aria-pressed="false" style="background-color: #ffe066;"
+                    title="{{#str}}colouryellow, local_scribbles{{/str}}" aria-label="{{#str}}colouryellow, local_scribbles{{/str}}"></button>
+            <button type="button" class="local_scribbles-swatch" data-colour="#2f9e44" aria-pressed="false" style="background-color: #2f9e44;"
+                    title="{{#str}}colourgreen, local_scribbles{{/str}}" aria-label="{{#str}}colourgreen, local_scribbles{{/str}}"></button>
+            <button type="button" class="local_scribbles-swatch" data-colour="#1971c2" aria-pressed="false" style="background-color: #1971c2;"
+                    title="{{#str}}colourblue, local_scribbles{{/str}}" aria-label="{{#str}}colourblue, local_scribbles{{/str}}"></button>
+            <button type="button" class="local_scribbles-swatch" data-colour="#212529" aria-pressed="false" style="background-color: #212529;"
+                    title="{{#str}}colourblack, local_scribbles{{/str}}" aria-label="{{#str}}colourblack, local_scribbles{{/str}}"></button>
+            <label class="local_scribbles-custom" title="{{#str}}colourcustom, local_scribbles{{/str}}">
+                <span class="visually-hidden sr-only">{{#str}}colourcustom, local_scribbles{{/str}}</span>
+                <input type="color" data-region="colourpicker" value="#e03131">
+            </label>
+        </div>
+
+        <div class="local_scribbles-group">
+            <label class="local_scribbles-size" title="{{#str}}size, local_scribbles{{/str}}">
+                <span class="visually-hidden sr-only">{{#str}}size, local_scribbles{{/str}}</span>
+                <input type="range" data-region="size" min="1" max="20" step="1" value="4">
+            </label>
+        </div>
+
+        <div class="local_scribbles-group" role="group" aria-label="{{#str}}actions, local_scribbles{{/str}}">
+            <button type="button" class="btn btn-sm" data-action="undo"
+                    title="{{#str}}undo, local_scribbles{{/str}}" aria-label="{{#str}}undo, local_scribbles{{/str}}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>
+            </button>
+            <button type="button" class="btn btn-sm" data-action="clear"
+                    title="{{#str}}clear, local_scribbles{{/str}}" aria-label="{{#str}}clear, local_scribbles{{/str}}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M5 7l1 13h12l1-13"/><path d="M9 7V4h6v3"/></svg>
+            </button>
+            <button type="button" class="btn btn-sm" data-action="download"
+                    title="{{#str}}download, local_scribbles{{/str}}" aria-label="{{#str}}download, local_scribbles{{/str}}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/></svg>
+            </button>
+            <button type="button" class="btn btn-sm btn-primary" data-action="save"
+                    title="{{#str}}save, local_scribbles{{/str}}" aria-label="{{#str}}save, local_scribbles{{/str}}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+            </button>
+            <a class="btn btn-sm" href="{{listurl}}" target="_blank" rel="noopener"
+                    title="{{#str}}myscribbles, local_scribbles{{/str}}" aria-label="{{#str}}myscribbles, local_scribbles{{/str}}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 16l5-5 4 4 3-3 6 6"/></svg>
+            </a>
+        </div>
+
+        <div class="local_scribbles-status" data-region="status" role="status" aria-live="polite"></div>
+    </div>
+
+    <button type="button" class="btn local_scribbles-close" data-action="close"
+            title="{{#str}}closescribbles, local_scribbles{{/str}}" aria-label="{{#str}}closescribbles, local_scribbles{{/str}}">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
+    </button>
+</div>

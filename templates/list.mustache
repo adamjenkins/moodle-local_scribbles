@@ -1,0 +1,63 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_scribbles/list
+
+    The current user's saved scribbles.
+
+    Context variables required for this template:
+    * hasitems - whether there is anything to show
+    * items - saved screenshots: imageurl, downloadurl, deleteurl, pagetitle, pageurl, timecreated
+
+    Example context (json):
+    {
+        "hasitems": true,
+        "items": [
+            {
+                "imageurl": "https://example.com/pluginfile.php/5/local_scribbles/screenshot/1/scribble.png",
+                "downloadurl": "https://example.com/pluginfile.php/5/local_scribbles/screenshot/1/scribble.png?forcedownload=1",
+                "deleteurl": "https://example.com/local/scribbles/index.php?action=delete&id=1",
+                "pagetitle": "Course: Biology 101",
+                "pageurl": "https://example.com/course/view.php?id=2",
+                "timecreated": "Monday, 19 October 2026, 9:30 AM"
+            }
+        ]
+    }
+}}
+{{#hasitems}}
+<div class="local_scribbles-list">
+    {{#items}}
+    <div class="card local_scribbles-item">
+        <a href="{{imageurl}}" target="_blank" rel="noopener">
+            <img class="card-img-top local_scribbles-thumb" src="{{imageurl}}" alt="{{pagetitle}}" loading="lazy">
+        </a>
+        <div class="card-body">
+            <h3 class="h6 card-title text-truncate" title="{{pagetitle}}">
+                {{#pageurl}}<a href="{{pageurl}}">{{pagetitle}}</a>{{/pageurl}}
+                {{^pageurl}}{{pagetitle}}{{/pageurl}}
+            </h3>
+            <p class="card-text small text-muted">{{timecreated}}</p>
+            <a class="btn btn-secondary btn-sm" href="{{downloadurl}}">{{#str}}download, local_scribbles{{/str}}</a>
+            <a class="btn btn-outline-danger btn-sm" href="{{deleteurl}}">{{#str}}delete{{/str}}</a>
+        </div>
+    </div>
+    {{/items}}
+</div>
+{{/hasitems}}
+{{^hasitems}}
+<p>{{#str}}noscribbles, local_scribbles{{/str}}</p>
+{{/hasitems}}
