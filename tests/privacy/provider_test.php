@@ -28,8 +28,8 @@ use local_scribbles\local\manager;
  * @package    local_scribbles
  * @copyright  2026 Adam Jenkins <adam@wisecat.net>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \local_scribbles\privacy\provider
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\local_scribbles\privacy\provider::class)]
 final class provider_test extends \core_privacy\tests\provider_testcase {
     /**
      * Save a small PNG screenshot for a user.

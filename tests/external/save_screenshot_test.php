@@ -25,11 +25,11 @@ use local_scribbles\local\manager;
  * @package    local_scribbles
  * @copyright  2026 Adam Jenkins <adam@wisecat.net>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \local_scribbles\external\save_screenshot
- * @covers     \local_scribbles\local\manager
- * @covers     \local_scribbles\local\access
- * @covers     \local_scribbles\local\observer
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\local_scribbles\external\save_screenshot::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\local_scribbles\local\manager::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\local_scribbles\local\access::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\local_scribbles\local\observer::class)]
 final class save_screenshot_test extends \advanced_testcase {
     /**
      * A small image as a data: URL.
