@@ -1,0 +1,66 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_scribbles/pages_panel
+
+    The overlay's panel for saving the drawing as an annotation page, or opening or deleting a saved one.
+
+    Context variables required for this template:
+    * name - suggested name for the page
+    * canupdate - whether a saved page is open, so that it can be updated
+    * haspages - whether any pages have been saved
+    * pages - saved pages: id, name, pagetitle, timemodified
+
+    Example context (json):
+    {
+        "name": "Course: Biology 101",
+        "canupdate": true,
+        "haspages": true,
+        "pages": [
+            {
+                "id": 1,
+                "name": "Week 3 notes",
+                "pagetitle": "Course: Biology 101",
+                "timemodified": "Monday, 19 October 2026, 9:30 AM"
+            }
+        ]
+    }
+}}
+<form class="local_scribbles-pageform">
+    <label class="form-label" for="local_scribbles-pagename">{{#str}}pagename, local_scribbles{{/str}}</label>
+    <input type="text" class="form-control form-control-sm mb-2" id="local_scribbles-pagename" maxlength="255" value="{{name}}">
+    <button type="submit" class="btn btn-primary btn-sm">{{#str}}savepage, local_scribbles{{/str}}</button>
+    {{#canupdate}}
+    <button type="button" class="btn btn-secondary btn-sm" data-action="savepagenew">{{#str}}savepageasnew, local_scribbles{{/str}}</button>
+    {{/canupdate}}
+</form>
+{{#haspages}}
+<ul class="local_scribbles-pagelist">
+    {{#pages}}
+    <li>
+        <div>
+            <div class="text-truncate" title="{{name}}">{{name}}</div>
+            <div class="small text-muted text-truncate" title="{{pagetitle}}">{{timemodified}}</div>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" data-action="openpage" data-pageid="{{id}}"
+                aria-label="{{#str}}openpage, local_scribbles{{/str}}: {{name}}">{{#str}}openpage, local_scribbles{{/str}}</button>
+        <button type="button" class="btn btn-outline-danger btn-sm" data-action="deletepage" data-pageid="{{id}}" data-pagename="{{name}}"
+                aria-label="{{#str}}delete{{/str}}: {{name}}">{{#str}}delete{{/str}}</button>
+    </li>
+    {{/pages}}
+</ul>
+{{/haspages}}

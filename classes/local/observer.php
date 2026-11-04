@@ -25,7 +25,7 @@ namespace local_scribbles\local;
  */
 class observer {
     /**
-     * Remove a deleted user's screenshots.
+     * Remove a deleted user's screenshots and annotation pages.
      *
      * @param \core\event\user_deleted $event
      * @return void

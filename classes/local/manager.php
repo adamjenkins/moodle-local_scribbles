@@ -33,6 +33,9 @@ class manager {
     /** @var int Largest accepted image, in bytes after base64 decoding. */
     public const MAX_BYTES = 8388608;
 
+    /** @var int Screenshots a user may keep unless the maxscreenshots setting says otherwise. */
+    public const DEFAULT_MAX_SCREENSHOTS = 100;
+
     /** @var array Accepted image types and the file extension each is stored with. */
     private const TYPES = [
         IMAGETYPE_PNG => 'png',
@@ -57,6 +60,12 @@ class manager {
         string $imagedata
     ): \stdClass {
         global $DB;
+
+        $limit = get_config('local_scribbles', 'maxscreenshots');
+        $limit = $limit === false ? self::DEFAULT_MAX_SCREENSHOTS : (int) $limit;
+        if ($limit > 0 && $DB->count_records('local_scribbles', ['userid' => $userid]) >= $limit) {
+            throw new \moodle_exception('errortoomanyscreenshots', 'local_scribbles', '', $limit);
+        }
 
         $binary = self::decode_image($imagedata);
         $info = getimagesizefromstring($binary);
@@ -89,6 +98,42 @@ class manager {
         $transaction->allow_commit();
 
         return $record;
+    }
+
+    /**
+     * Keep a page URL only if it points into this site, and without its sesskey.
+     *
+     * A saved URL becomes a link on My scribbles. With the sesskey in it, following
+     * the link could repeat whatever action the page's URL performed.
+     *
+     * @param string $url
+     * @return string The URL, or '' if it cannot be kept
+     */
+    public static function clean_page_url(string $url): string {
+        $url = clean_param($url, PARAM_LOCALURL);
+        if ($url === '') {
+            return '';
+        }
+        try {
+            $parsed = new \moodle_url($url);
+        } catch (\moodle_exception $e) {
+            return '';
+        }
+        $parsed->remove_params('sesskey');
+        return $parsed->out(false);
+    }
+
+    /**
+     * One of a user's own screenshots.
+     *
+     * @param int $id
+     * @param int $userid
+     * @return \stdClass The local_scribbles record
+     */
+    public static function get_own(int $id, int $userid): \stdClass {
+        global $DB;
+
+        return $DB->get_record('local_scribbles', ['id' => $id, 'userid' => $userid], '*', MUST_EXIST);
     }
 
     /**
@@ -130,7 +175,7 @@ class manager {
     }
 
     /**
-     * Delete all of a user's screenshots.
+     * Delete all of a user's screenshots and annotation pages.
      *
      * @param int $userid
      * @param int $usercontextid The user's context id (passed in because the
@@ -142,6 +187,7 @@ class manager {
 
         get_file_storage()->delete_area_files($usercontextid, 'local_scribbles', self::FILEAREA);
         $DB->delete_records('local_scribbles', ['userid' => $userid]);
+        $DB->delete_records(pages::TABLE, ['userid' => $userid]);
     }
 
     /**

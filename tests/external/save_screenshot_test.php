@@ -59,6 +59,68 @@ final class save_screenshot_test extends \advanced_testcase {
     }
 
     /**
+     * A saved URL keeps its other parameters but not its sesskey, and only points into this site.
+     */
+    public function test_clean_page_url(): void {
+        global $CFG;
+        $this->resetAfterTest();
+
+        $base = $CFG->wwwroot . '/course/view.php';
+        $this->assertSame($base . '?id=2&delete=1', manager::clean_page_url($base . '?id=2&sesskey=abc&delete=1'));
+        $this->assertSame($base . '?id=2#section-1', manager::clean_page_url($base . '?id=2&sesskey=abc#section-1'));
+        $this->assertSame($base, manager::clean_page_url($base . '?sesskey=abc'));
+        $this->assertSame($base . '?id=2', manager::clean_page_url($base . '?id=2'));
+        $this->assertSame('', manager::clean_page_url('https://elsewhere.example.com/?sesskey=abc'));
+        $this->assertSame('', manager::clean_page_url('javascript:alert(1)'));
+        $this->assertSame('', manager::clean_page_url(''));
+    }
+
+    /**
+     * Saving stops at the limit, until a screenshot is deleted; 0 means no limit.
+     */
+    public function test_limit(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $user = $this->getDataGenerator()->create_user();
+        $generator = $this->getDataGenerator()->get_plugin_generator('local_scribbles');
+        set_config('maxscreenshots', 2, 'local_scribbles');
+
+        $first = $generator->create_screenshot(['userid' => $user->id]);
+        $generator->create_screenshot(['userid' => $user->id]);
+        try {
+            $generator->create_screenshot(['userid' => $user->id]);
+            $this->fail('Saved past the limit');
+        } catch (\moodle_exception $e) {
+            $this->assertSame('errortoomanyscreenshots', $e->errorcode);
+        }
+
+        // Another user has their own count.
+        $generator->create_screenshot(['userid' => $this->getDataGenerator()->create_user()->id]);
+
+        manager::delete($first);
+        $generator->create_screenshot(['userid' => $user->id]);
+
+        set_config('maxscreenshots', 0, 'local_scribbles');
+        $generator->create_screenshot(['userid' => $user->id]);
+        $this->assertSame(3, $DB->count_records('local_scribbles', ['userid' => $user->id]));
+    }
+
+    /**
+     * Only the owner can look up a screenshot, which is how My scribbles finds one to delete.
+     */
+    public function test_get_own(): void {
+        $this->resetAfterTest();
+        $owner = $this->getDataGenerator()->create_user();
+        $other = $this->getDataGenerator()->create_user();
+        $generator = $this->getDataGenerator()->get_plugin_generator('local_scribbles');
+        $record = $generator->create_screenshot(['userid' => $owner->id]);
+
+        $this->assertEquals($record->id, manager::get_own($record->id, $owner->id)->id);
+        $this->expectException(\dml_missing_record_exception::class);
+        manager::get_own($record->id, $other->id);
+    }
+
+    /**
      * A teacher saves a screenshot on their course page: a row and one image file in their user context.
      */
     public function test_teacher_saves_screenshot(): void {

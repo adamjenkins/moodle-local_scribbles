@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="local/scribbles/db" VERSION="20261019" COMMENT="XMLDB file for Moodle local/scribbles"
+<XMLDB PATH="local/scribbles/db" VERSION="20261104" COMMENT="XMLDB file for Moodle local/scribbles"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
@@ -19,6 +19,26 @@
       </KEYS>
       <INDEXES>
         <INDEX NAME="userid-timecreated" UNIQUE="false" FIELDS="userid, timecreated"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_scribbles_pages" COMMENT="Saved annotation pages: the annotations themselves, which can be opened and edited again.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="The user who saved the page"/>
+        <FIELD NAME="contextid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Context of the Moodle page it was drawn on (may since have been deleted)"/>
+        <FIELD NAME="pageurl" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="URL of the Moodle page it was drawn on"/>
+        <FIELD NAME="pagetitle" TYPE="char" LENGTH="1333" NOTNULL="false" SEQUENCE="false" COMMENT="Title of the Moodle page it was drawn on"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="Name the user gave it"/>
+        <FIELD NAME="data" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="The annotations and scroll position as JSON, checked by \local_scribbles\local\pages"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="userid-timemodified" UNIQUE="false" FIELDS="userid, timemodified"/>
       </INDEXES>
     </TABLE>
   </TABLES>

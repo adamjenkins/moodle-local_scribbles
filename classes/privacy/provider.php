@@ -24,12 +24,14 @@ use core_privacy\local\request\transform;
 use core_privacy\local\request\userlist;
 use core_privacy\local\request\writer;
 use local_scribbles\local\manager;
+use local_scribbles\local\pages;
 
 /**
  * Privacy subsystem implementation for local_scribbles.
  *
- * Screenshots belong to the user who saved them and live in that user's own
- * context, whatever page they were taken on, so all data is in user contexts.
+ * Screenshots and annotation pages belong to the user who saved them and live
+ * in that user's own context, whatever page they were made on, so all data is in
+ * user contexts.
  *
  * @package    local_scribbles
  * @copyright  2026 Adam Jenkins <adam@wisecat.net>
@@ -54,13 +56,24 @@ class provider implements
             'timecreated' => 'privacy:metadata:local_scribbles:timecreated',
         ], 'privacy:metadata:local_scribbles');
 
+        $collection->add_database_table(pages::TABLE, [
+            'userid' => 'privacy:metadata:local_scribbles_pages:userid',
+            'contextid' => 'privacy:metadata:local_scribbles_pages:contextid',
+            'pageurl' => 'privacy:metadata:local_scribbles_pages:pageurl',
+            'pagetitle' => 'privacy:metadata:local_scribbles_pages:pagetitle',
+            'name' => 'privacy:metadata:local_scribbles_pages:name',
+            'data' => 'privacy:metadata:local_scribbles_pages:data',
+            'timecreated' => 'privacy:metadata:local_scribbles_pages:timecreated',
+            'timemodified' => 'privacy:metadata:local_scribbles_pages:timemodified',
+        ], 'privacy:metadata:local_scribbles_pages');
+
         $collection->add_subsystem_link('core_files', [], 'privacy:metadata:core_files');
 
         return $collection;
     }
 
     /**
-     * The user's own context, if they have saved any screenshots.
+     * The user's own context, if they have saved anything.
      *
      * @param int $userid
      * @return contextlist
@@ -71,13 +84,14 @@ class provider implements
                   FROM {context} ctx
                  WHERE ctx.contextlevel = :contextlevel
                    AND ctx.instanceid = :userid
-                   AND EXISTS (SELECT 1 FROM {local_scribbles} s WHERE s.userid = ctx.instanceid)";
+                   AND (EXISTS (SELECT 1 FROM {local_scribbles} s WHERE s.userid = ctx.instanceid)
+                        OR EXISTS (SELECT 1 FROM {local_scribbles_pages} p WHERE p.userid = ctx.instanceid))";
         $contextlist->add_from_sql($sql, ['contextlevel' => CONTEXT_USER, 'userid' => $userid]);
         return $contextlist;
     }
 
     /**
-     * The owner of a user context, if they have saved any screenshots.
+     * The owner of a user context, if they have saved anything.
      *
      * @param userlist $userlist
      * @return void
@@ -92,10 +106,15 @@ class provider implements
             "SELECT userid FROM {local_scribbles} WHERE userid = :userid",
             ['userid' => $context->instanceid]
         );
+        $userlist->add_from_sql(
+            'userid',
+            "SELECT userid FROM {local_scribbles_pages} WHERE userid = :userid",
+            ['userid' => $context->instanceid]
+        );
     }
 
     /**
-     * Export the user's screenshots and their images.
+     * Export the user's screenshots with their images, and annotation pages.
      *
      * @param approved_contextlist $contextlist
      * @return void
@@ -113,17 +132,36 @@ class provider implements
                 $subcontext = [get_string('pluginname', 'local_scribbles'), $record->id];
                 writer::with_context($context)
                     ->export_data($subcontext, (object) [
+                        'contextid' => $record->contextid,
                         'pageurl' => $record->pageurl,
                         'pagetitle' => $record->pagetitle,
                         'timecreated' => transform::datetime($record->timecreated),
                     ])
                     ->export_area_files($subcontext, 'local_scribbles', manager::FILEAREA, $record->id);
             }
+
+            $records = $DB->get_records(pages::TABLE, ['userid' => $userid], 'timecreated, id');
+            foreach ($records as $record) {
+                $subcontext = [
+                    get_string('pluginname', 'local_scribbles'),
+                    get_string('annotationpages', 'local_scribbles'),
+                    $record->id,
+                ];
+                writer::with_context($context)->export_data($subcontext, (object) [
+                    'name' => $record->name,
+                    'contextid' => $record->contextid,
+                    'pageurl' => $record->pageurl,
+                    'pagetitle' => $record->pagetitle,
+                    'data' => json_decode($record->data),
+                    'timecreated' => transform::datetime($record->timecreated),
+                    'timemodified' => transform::datetime($record->timemodified),
+                ]);
+            }
         }
     }
 
     /**
-     * Delete all screenshots in a context.
+     * Delete everything saved in a context.
      *
      * @param \context $context
      * @return void
@@ -135,7 +173,7 @@ class provider implements
     }
 
     /**
-     * Delete the user's screenshots.
+     * Delete everything the user saved.
      *
      * @param approved_contextlist $contextlist
      * @return void
@@ -150,7 +188,7 @@ class provider implements
     }
 
     /**
-     * Delete the screenshots of the listed users in a context.
+     * Delete what the listed users saved in a context.
      *
      * @param approved_userlist $userlist
      * @return void

@@ -15,10 +15,11 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * The current user's saved scribbles: view, download, delete.
+ * The current user's saved scribbles: open or delete annotation pages, view,
+ * download or delete screenshots.
  *
- * No capability is needed: anyone may see and delete screenshots they saved
- * themselves, even after losing the right to take new ones.
+ * No capability is needed: anyone may see and delete what they saved
+ * themselves, even after losing the right to make more.
  *
  * @package    local_scribbles
  * @copyright  2026 Adam Jenkins <adam@wisecat.net>
@@ -28,6 +29,7 @@
 require_once(__DIR__ . '/../../config.php');
 
 use local_scribbles\local\manager;
+use local_scribbles\local\pages;
 
 require_login(null, false);
 if (isguestuser()) {
@@ -37,6 +39,7 @@ if (isguestuser()) {
 $action = optional_param('action', '', PARAM_ALPHA);
 $id = optional_param('id', 0, PARAM_INT);
 $page = optional_param('page', 0, PARAM_INT);
+$pagespage = optional_param('pagespage', 0, PARAM_INT);
 $perpage = 24;
 
 $context = context_user::instance($USER->id);
@@ -44,13 +47,13 @@ $url = new moodle_url('/local/scribbles/index.php');
 $title = get_string('myscribbles', 'local_scribbles');
 
 $PAGE->set_context($context);
-$PAGE->set_url($url, $page ? ['page' => $page] : []);
+$PAGE->set_url($url, array_filter(['page' => $page, 'pagespage' => $pagespage]));
 $PAGE->set_pagelayout('standard');
 $PAGE->set_title($title);
 $PAGE->set_heading(fullname($USER));
 
 if ($action === 'delete' && $id) {
-    $record = $DB->get_record('local_scribbles', ['id' => $id, 'userid' => $USER->id], '*', MUST_EXIST);
+    $record = manager::get_own($id, (int) $USER->id);
     if (optional_param('confirm', 0, PARAM_BOOL)) {
         require_sesskey();
         manager::delete($record);
@@ -67,6 +70,49 @@ if ($action === 'delete' && $id) {
     );
     echo $OUTPUT->footer();
     exit;
+}
+
+if ($action === 'deletepage' && $id) {
+    $record = pages::get_own($id, (int) $USER->id);
+    if (optional_param('confirm', 0, PARAM_BOOL)) {
+        require_sesskey();
+        $DB->delete_records(pages::TABLE, ['id' => $record->id]);
+        redirect($url, get_string('pagedeleted', 'local_scribbles'), null, \core\output\notification::NOTIFY_SUCCESS);
+    }
+
+    echo $OUTPUT->header();
+    echo $OUTPUT->heading($title);
+    echo $OUTPUT->confirm(
+        get_string('confirmdeletepage', 'local_scribbles', s($record->name)),
+        new moodle_url($url, ['action' => 'deletepage', 'id' => $record->id, 'confirm' => 1, 'sesskey' => sesskey()]),
+        $url
+    );
+    echo $OUTPUT->footer();
+    exit;
+}
+
+$totalpages = $DB->count_records(pages::TABLE, ['userid' => $USER->id]);
+$pagerecords = $DB->get_records(
+    pages::TABLE,
+    ['userid' => $USER->id],
+    'timemodified DESC, id DESC',
+    'id, name, pageurl, pagetitle, timemodified',
+    $pagespage * $perpage,
+    $perpage
+);
+
+$pageitems = [];
+foreach ($pagerecords as $record) {
+    // The overlay opens the page when it sees this fragment on the Moodle page it was drawn on.
+    $openurl = new moodle_url($record->pageurl !== '' && $record->pageurl !== null ? $record->pageurl : '/my/');
+    $openurl->set_anchor('local_scribbles_page-' . $record->id);
+    $pageitems[] = [
+        'name' => $record->name,
+        'openurl' => $openurl->out(false),
+        'deleteurl' => (new moodle_url($url, ['action' => 'deletepage', 'id' => $record->id]))->out(false),
+        'pagetitle' => $record->pagetitle,
+        'timemodified' => userdate($record->timemodified, get_string('strftimedatetime', 'langconfig')),
+    ];
 }
 
 $total = $DB->count_records('local_scribbles', ['userid' => $USER->id]);
@@ -113,6 +159,13 @@ foreach ($records as $record) {
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading($title);
+echo $OUTPUT->heading(get_string('annotationpages', 'local_scribbles'), 3);
+echo $OUTPUT->render_from_template('local_scribbles/pages_list', [
+    'pages' => $pageitems,
+    'haspages' => !empty($pageitems),
+]);
+echo $OUTPUT->paging_bar($totalpages, $pagespage, $perpage, $url, 'pagespage');
+echo $OUTPUT->heading(get_string('screenshots', 'local_scribbles'), 3);
 echo $OUTPUT->render_from_template('local_scribbles/list', [
     'items' => $items,
     'hasitems' => !empty($items),

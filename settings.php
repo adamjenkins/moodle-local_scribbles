@@ -39,5 +39,21 @@ if ($hassiteconfig) {
         ]
     ));
 
+    $settings->add(new admin_setting_configtext(
+        'local_scribbles/maxscreenshots',
+        get_string('maxscreenshots', 'local_scribbles'),
+        get_string('maxscreenshots_desc', 'local_scribbles'),
+        \local_scribbles\local\manager::DEFAULT_MAX_SCREENSHOTS,
+        PARAM_INT
+    ));
+
+    $settings->add(new admin_setting_configtext(
+        'local_scribbles/maxpages',
+        get_string('maxpages', 'local_scribbles'),
+        get_string('maxpages_desc', 'local_scribbles'),
+        \local_scribbles\local\pages::DEFAULT_MAX_PAGES,
+        PARAM_INT
+    ));
+
     $ADMIN->add('localplugins', $settings);
 }

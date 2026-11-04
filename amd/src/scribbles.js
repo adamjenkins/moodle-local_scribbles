@@ -16,9 +16,11 @@
 /**
  * Scribbles: annotate any Moodle page on a transparent canvas and screenshot it.
  *
- * The drawing is kept as a list of operations (strokes, shapes, text) in CSS
- * pixels relative to the viewport and redrawn on every change, so undo and
- * window resizes are cheap. Screenshots come from the browser's own tab
+ * The drawing is kept as a list of annotations (strokes, shapes, text) in CSS
+ * pixels relative to the viewport and redrawn on every change. Each can be
+ * selected and changed afterwards, and the whole list can be saved on the server
+ * as an annotation page and opened again. Undo steps back through earlier copies
+ * of the list. Screenshots come from the browser's own tab
  * capture (getDisplayMedia), which records exactly what is on screen, the
  * annotations included, whatever CSS the page uses. The capture stream is kept
  * open while the overlay is, so the browser asks to share the tab only once.
@@ -28,6 +30,18 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+import {
+    centreOf,
+    cornerAt,
+    drawItem,
+    drawSelection,
+    hitItem,
+    insideSelection,
+    moveItem,
+    resizeCursor,
+    resizeItem,
+    textSize,
+} from 'local_scribbles/annotation';
 import Ajax from 'core/ajax';
 import Notification from 'core/notification';
 import Pending from 'core/pending';
@@ -43,6 +57,11 @@ const SELECTORS = {
     COLOURPICKER: '[data-region="colourpicker"]',
     SIZE: '[data-region="size"]',
     STATUS: '[data-region="status"]',
+    TOOLBAR: '[data-region="toolbar"]',
+    PAGES: '[data-region="pages"]',
+    PAGESBUTTON: '[data-action="pages"]',
+    CLOSE: '[data-action="close"]',
+    NAVBARBUTTON: '.local_scribbles-navbar [data-action="local_scribbles-open"]',
     ACTION: '[data-action]',
 };
 
@@ -50,16 +69,22 @@ const SELECTORS = {
 const MAX_UPLOAD_LENGTH = 6 * 1024 * 1024;
 
 /** @var {String[]} Tools drawn as a freehand stroke. */
-const FREEHAND = ['pen', 'highlighter', 'eraser'];
+const FREEHAND = ['pen', 'highlighter'];
 
 /** @var {String[]} Every tool. */
-const TOOLS = ['pen', 'highlighter', 'text', 'box', 'ellipse', 'eraser'];
+const TOOLS = ['select', 'pen', 'highlighter', 'text', 'box', 'ellipse', 'eraser'];
 
 /** @var {String} localStorage key of the remembered tool, colour and size. */
 const STORAGE_KEY = 'local_scribbles/options';
 
 /** @var {Object} Options used when nothing valid is remembered. */
 const DEFAULT_OPTIONS = {tool: 'pen', colour: '#e03131', size: 4};
+
+/** @var {Number} How far the pointer must move before a press counts as a drag, in CSS pixels. */
+const DRAG_THRESHOLD = 3;
+
+/** @var {RegExp} URL fragment that opens an annotation page when the Moodle page loads. */
+const OPEN_FRAGMENT = /^#local_scribbles_page-(\d+)$/;
 
 /** @var {Object|null} Page configuration from PHP. */
 let config = null;
@@ -96,110 +121,85 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const nextPaint = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
 /**
- * Font size in CSS pixels for a given brush size.
+ * The selected annotation, if any.
  *
- * @param {Number} size
- * @returns {Number}
+ * @returns {Object|undefined}
  */
-const textSize = (size) => 10 + size * 2;
+const selectedItem = () => state.items.find((item) => item.id === state.selected);
 
 /**
- * Stroke a smoothed path through a list of points.
+ * A copy of a new annotation with an id of its own.
  *
- * @param {CanvasRenderingContext2D} ctx
- * @param {Array} points [[x, y], ...]
+ * @param {Object} item
+ * @returns {Object}
  */
-const strokePoints = (ctx, points) => {
-    if (points.length === 1) {
-        ctx.beginPath();
-        ctx.arc(points[0][0], points[0][1], ctx.lineWidth / 2, 0, Math.PI * 2);
-        ctx.fill();
-        return;
-    }
-    ctx.beginPath();
-    ctx.moveTo(points[0][0], points[0][1]);
-    for (let i = 1; i < points.length - 1; i++) {
-        const midx = (points[i][0] + points[i + 1][0]) / 2;
-        const midy = (points[i][1] + points[i + 1][1]) / 2;
-        ctx.quadraticCurveTo(points[i][0], points[i][1], midx, midy);
-    }
-    const last = points[points.length - 1];
-    ctx.lineTo(last[0], last[1]);
-    ctx.stroke();
+const withId = (item) => ({...item, id: state.nextid++});
+
+/**
+ * Remember the current annotations so that undo can come back to them. Call
+ * this before changing them.
+ */
+const pushHistory = () => {
+    state.history.push(state.items);
+    state.recoloured = null;
 };
 
 /**
- * Draw one operation.
+ * Replace an annotation with a changed copy of it.
  *
- * @param {CanvasRenderingContext2D} ctx
- * @param {Object} op
+ * @param {Object} changed
  */
-const drawOp = (ctx, op) => {
-    ctx.save();
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = op.colour;
-    ctx.fillStyle = op.colour;
-    ctx.lineWidth = op.size;
-
-    switch (op.type) {
-        case 'pen':
-            strokePoints(ctx, op.points);
-            break;
-        case 'highlighter':
-            // One path per stroke, so a stroke crossing itself does not darken.
-            ctx.globalAlpha = 0.35;
-            ctx.lineWidth = op.size * 4;
-            strokePoints(ctx, op.points);
-            break;
-        case 'eraser':
-            ctx.globalCompositeOperation = 'destination-out';
-            ctx.lineWidth = op.size * 4;
-            strokePoints(ctx, op.points);
-            break;
-        case 'box':
-            ctx.strokeRect(Math.min(op.x0, op.x1), Math.min(op.y0, op.y1), Math.abs(op.x1 - op.x0), Math.abs(op.y1 - op.y0));
-            break;
-        case 'ellipse':
-            ctx.beginPath();
-            ctx.ellipse((op.x0 + op.x1) / 2, (op.y0 + op.y1) / 2, Math.abs(op.x1 - op.x0) / 2, Math.abs(op.y1 - op.y0) / 2,
-                0, 0, Math.PI * 2);
-            ctx.stroke();
-            break;
-        case 'text': {
-            const fontsize = textSize(op.size);
-            const lineheight = fontsize * 1.25;
-            ctx.font = `${fontsize}px ${op.font}`;
-            ctx.textBaseline = 'top';
-            // Match the CSS half-leading of the textarea the text was typed in.
-            op.text.split('\n').forEach((line, i) => {
-                ctx.fillText(line, op.x, op.y + (lineheight - fontsize) / 2 + i * lineheight);
-            });
-            break;
-        }
-    }
-    ctx.restore();
+const replaceItem = (changed) => {
+    state.items = state.items.map((item) => (item.id === changed.id ? changed : item));
 };
 
 /**
- * Redraw everything since the last "clear".
+ * Redraw every annotation and, except in a screenshot, the selection.
  */
 const render = () => {
-    const {ctx, canvas, ops} = state;
+    const {ctx, canvas, items} = state;
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.restore();
 
-    let start = 0;
-    ops.forEach((op, i) => {
-        if (op.type === 'clear') {
-            start = i + 1;
-        }
-    });
-    ops.slice(start).forEach((op) => drawOp(ctx, op));
+    items.forEach((item) => drawItem(ctx, item));
     if (state.current) {
-        drawOp(ctx, state.current);
+        drawItem(ctx, state.current);
+    }
+    const selected = selectedItem();
+    if (selected && !state.capturing) {
+        drawSelection(ctx, selected, state.selectmode);
+    }
+};
+
+/**
+ * Put the close button exactly over the navbar button that opens scribbles, so
+ * the same spot turns it on and off, and keep the toolbar clear of it. With no
+ * navbar button on the page, the close button stays in the top right corner.
+ */
+const placeCloseButton = () => {
+    const close = state.root.querySelector(SELECTORS.CLOSE);
+    const toolbar = state.root.querySelector(SELECTORS.TOOLBAR);
+    const button = document.querySelector(SELECTORS.NAVBARBUTTON);
+    const rect = button ? button.getBoundingClientRect() : null;
+    if (!rect || !rect.width) {
+        close.removeAttribute('style');
+        toolbar.style.top = '';
+        return;
+    }
+    Object.assign(close.style, {
+        top: `${rect.top}px`,
+        left: `${rect.left}px`,
+        right: 'auto',
+        width: `${rect.width}px`,
+        height: `${rect.height}px`,
+        borderRadius: window.getComputedStyle(button).borderRadius,
+    });
+    toolbar.style.top = '';
+    const bar = toolbar.getBoundingClientRect();
+    if (bar.left < rect.right && bar.right > rect.left && bar.top < rect.bottom && bar.bottom > rect.top) {
+        toolbar.style.top = `${rect.bottom + 4}px`;
     }
 };
 
@@ -256,15 +256,16 @@ const commitText = () => {
     state.textinput = null;
     const text = input.value.replace(/\s+$/, '');
     if (text !== '') {
-        state.ops.push({
+        pushHistory();
+        state.items = [...state.items, withId({
             type: 'text',
             colour: input.dataset.colour,
-            size: Number(input.dataset.size),
-            font: input.dataset.font,
+            fontsize: Number(input.dataset.fontsize),
+            font: state.font,
             x: Number(input.dataset.x),
             y: Number(input.dataset.y),
             text: text,
-        });
+        })];
     }
     input.remove();
     render();
@@ -288,19 +289,18 @@ const cancelText = () => {
  */
 const startText = (x, y) => {
     commitText();
-    const font = window.getComputedStyle(document.body).fontFamily || 'sans-serif';
     const fontsize = textSize(state.size);
     const input = document.createElement('textarea');
     input.className = 'local_scribbles-textinput';
     input.rows = 1;
     input.cols = 1;
     input.setAttribute('aria-label', state.strings.tooltext);
-    Object.assign(input.dataset, {colour: state.colour, size: state.size, font: font, x: x, y: y});
+    Object.assign(input.dataset, {colour: state.colour, fontsize: fontsize, x: x, y: y});
     Object.assign(input.style, {
         left: `${x}px`,
         top: `${y}px`,
         color: state.colour,
-        fontFamily: font,
+        fontFamily: state.font,
         fontSize: `${fontsize}px`,
     });
     const grow = () => {
@@ -328,7 +328,159 @@ const startText = (x, y) => {
 };
 
 /**
- * Start drawing.
+ * How near the pointer must be to touch something: fingers are less exact than mice.
+ *
+ * @param {PointerEvent} e
+ * @returns {Number[]} [annotation tolerance, handle radius] in CSS pixels
+ */
+const reachOf = (e) => (e.pointerType === 'touch' ? [12, 18] : [5, 9]);
+
+/**
+ * The topmost annotation under a point.
+ *
+ * @param {Number} x
+ * @param {Number} y
+ * @param {Number} tolerance
+ * @returns {Object|undefined}
+ */
+const itemAt = (x, y, tolerance) => [...state.items].reverse().find((item) => hitItem(state.ctx, item, x, y, tolerance));
+
+/**
+ * Select an annotation, or nothing. The toolbar shows the colour of the
+ * selection without changing the colour drawn with next.
+ *
+ * @param {Number|null} id
+ */
+const selectItem = (id) => {
+    if (id !== state.selected) {
+        state.recoloured = null;
+        state.selectmode = 'resize';
+    }
+    state.selected = id;
+    const selected = selectedItem();
+    showColour(selected ? selected.colour : state.colour);
+};
+
+/**
+ * Press with the select tool: on a handle, on the selection, on another
+ * annotation or on nothing.
+ *
+ * @param {PointerEvent} e
+ * @param {Number} x
+ * @param {Number} y
+ */
+const startSelectGesture = (e, x, y) => {
+    const [tolerance, radius] = reachOf(e);
+    const selected = selectedItem();
+    const base = {start: [x, y], moved: false};
+
+    const corner = selected ? cornerAt(state.ctx, selected, x, y, radius) : null;
+    if (corner) {
+        state.gesture = {...base, kind: state.selectmode, corner, item: selected};
+        return;
+    }
+    if (selected && hitItem(state.ctx, selected, x, y, tolerance)) {
+        // A click without a drag swaps the resize and rotate handles.
+        state.gesture = {...base, kind: 'move', item: selected, toggles: true};
+        return;
+    }
+    const other = itemAt(x, y, tolerance);
+    if (other) {
+        selectItem(other.id);
+        state.gesture = {...base, kind: 'move', item: other};
+        return;
+    }
+    if (selected && insideSelection(state.ctx, selected, x, y)) {
+        state.gesture = {...base, kind: 'move', item: selected, toggles: true};
+        return;
+    }
+    selectItem(null);
+};
+
+/**
+ * Continue moving, resizing or rotating the selection.
+ *
+ * @param {PointerEvent} e
+ * @param {Number} x
+ * @param {Number} y
+ */
+const continueSelectGesture = (e, x, y) => {
+    const gesture = state.gesture;
+    const dx = x - gesture.start[0];
+    const dy = y - gesture.start[1];
+    if (!gesture.moved) {
+        if (Math.hypot(dx, dy) < DRAG_THRESHOLD) {
+            return;
+        }
+        gesture.moved = true;
+        pushHistory();
+    }
+    const {item} = gesture;
+    if (gesture.kind === 'move') {
+        replaceItem(moveItem(item, dx, dy));
+    } else if (gesture.kind === 'resize') {
+        replaceItem(resizeItem(state.ctx, item, gesture.corner, dx, dy, e.shiftKey));
+    } else {
+        const [cx, cy] = centreOf(state.ctx, item);
+        let angle = (item.angle || 0) + Math.atan2(y - cy, x - cx) - Math.atan2(gesture.start[1] - cy, gesture.start[0] - cx);
+        if (e.shiftKey) {
+            // Shift snaps to 15 degree steps.
+            angle = Math.round(angle / (Math.PI / 12)) * (Math.PI / 12);
+        }
+        replaceItem({...item, angle});
+    }
+    render();
+};
+
+/**
+ * Show what pressing here would do, with the select tool.
+ *
+ * @param {PointerEvent} e
+ * @param {Number} x
+ * @param {Number} y
+ */
+const updateSelectCursor = (e, x, y) => {
+    const [tolerance, radius] = reachOf(e);
+    const selected = selectedItem();
+    const corner = selected ? cornerAt(state.ctx, selected, x, y, radius) : null;
+    let cursor = '';
+    if (corner) {
+        cursor = state.selectmode === 'rotate' ? 'grab' : resizeCursor(state.ctx, selected, corner);
+    } else if (itemAt(x, y, tolerance) || (selected && insideSelection(state.ctx, selected, x, y))) {
+        cursor = 'move';
+    }
+    state.canvas.style.cursor = cursor;
+};
+
+/**
+ * Remove every annotation the eraser touches between two points.
+ *
+ * @param {Number[]} from [x, y]
+ * @param {Number[]} to [x, y]
+ */
+const eraseAlong = (from, to) => {
+    // Fast strokes leave gaps between pointer events, wide enough to miss a thin line.
+    const steps = Math.ceil(Math.hypot(to[0] - from[0], to[1] - from[1]) / 4) || 1;
+    const touches = (item) => {
+        for (let i = 0; i <= steps; i++) {
+            const x = from[0] + (to[0] - from[0]) * i / steps;
+            const y = from[1] + (to[1] - from[1]) * i / steps;
+            if (hitItem(state.ctx, item, x, y, state.size * 2)) {
+                return true;
+            }
+        }
+        return false;
+    };
+    const remaining = state.items.filter((item) => !touches(item));
+    if (remaining.length < state.items.length) {
+        pushHistory();
+        state.items = remaining;
+        render();
+    }
+};
+
+/**
+ * Start drawing, erasing or editing.
  *
  * @param {PointerEvent} e
  */
@@ -336,6 +488,7 @@ const onPointerDown = (e) => {
     if (e.pointerType === 'mouse' && e.button !== 0) {
         return;
     }
+    closePages();
     const [x, y] = pointOf(e);
     if (state.tool === 'text') {
         // The text box opens on pointerup, once the gesture can no longer move focus away from it.
@@ -346,6 +499,16 @@ const onPointerDown = (e) => {
     }
     commitText();
     state.canvas.setPointerCapture(e.pointerId);
+    if (state.tool === 'select') {
+        startSelectGesture(e, x, y);
+        render();
+        return;
+    }
+    if (state.tool === 'eraser') {
+        state.erasing = [x, y];
+        eraseAlong([x, y], [x, y]);
+        return;
+    }
     const base = {type: state.tool, colour: state.colour, size: state.size};
     state.current = FREEHAND.includes(state.tool)
         ? {...base, points: [[x, y]]}
@@ -354,20 +517,33 @@ const onPointerDown = (e) => {
 };
 
 /**
- * Continue drawing.
+ * Continue drawing, erasing or editing.
  *
  * @param {PointerEvent} e
  */
 const onPointerMove = (e) => {
+    const [px, py] = pointOf(e);
+    if (state.gesture) {
+        continueSelectGesture(e, px, py);
+        return;
+    }
+    if (state.erasing) {
+        eraseAlong(state.erasing, [px, py]);
+        state.erasing = [px, py];
+        return;
+    }
     const op = state.current;
     if (!op) {
+        if (state.tool === 'select') {
+            updateSelectCursor(e, px, py);
+        }
         return;
     }
     if (op.points) {
         const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
         (events.length ? events : [e]).forEach((ev) => op.points.push(pointOf(ev)));
     } else {
-        let [x, y] = pointOf(e);
+        let [x, y] = [px, py];
         if (e.shiftKey) {
             // Shift draws a square or a circle.
             const side = Math.max(Math.abs(x - op.x0), Math.abs(y - op.y0));
@@ -381,13 +557,23 @@ const onPointerMove = (e) => {
 };
 
 /**
- * Finish drawing.
+ * Finish drawing, erasing or editing.
  */
 const onPointerUp = () => {
     if (state.textat) {
         const [x, y] = state.textat;
         state.textat = null;
         startText(x, y);
+        return;
+    }
+    state.erasing = null;
+    if (state.gesture) {
+        const {moved, toggles} = state.gesture;
+        state.gesture = null;
+        if (!moved && toggles) {
+            state.selectmode = state.selectmode === 'resize' ? 'rotate' : 'resize';
+        }
+        render();
         return;
     }
     const op = state.current;
@@ -397,7 +583,8 @@ const onPointerUp = () => {
     state.current = null;
     // A click with a shape tool would leave an invisible shape behind.
     if (op.points || Math.abs(op.x1 - op.x0) > 2 || Math.abs(op.y1 - op.y0) > 2) {
-        state.ops.push(op);
+        pushHistory();
+        state.items = [...state.items, withId(op)];
     }
     render();
 };
@@ -442,6 +629,8 @@ const saveOptions = () => {
  */
 const selectTool = (tool) => {
     commitText();
+    selectItem(null);
+    state.canvas.style.cursor = '';
     state.tool = tool;
     state.root.dataset.activeTool = tool;
     state.root.querySelectorAll(SELECTORS.TOOL).forEach((button) => {
@@ -462,29 +651,53 @@ const selectSize = (size) => {
 };
 
 /**
- * Select a colour.
+ * Show a colour as the current one in the toolbar.
+ *
+ * @param {String} colour CSS hex colour
+ */
+const showColour = (colour) => {
+    state.root.querySelectorAll(SELECTORS.SWATCH).forEach((swatch) => {
+        swatch.setAttribute('aria-pressed', swatch.dataset.colour === colour ? 'true' : 'false');
+    });
+    state.root.querySelector(SELECTORS.COLOURPICKER).value = colour;
+};
+
+/**
+ * Select a colour, for what is drawn next and for the selected annotation.
  *
  * @param {String} colour CSS hex colour
  */
 const selectColour = (colour) => {
     state.colour = colour;
-    state.root.querySelectorAll(SELECTORS.SWATCH).forEach((swatch) => {
-        swatch.setAttribute('aria-pressed', swatch.dataset.colour === colour ? 'true' : 'false');
-    });
-    state.root.querySelector(SELECTORS.COLOURPICKER).value = colour;
+    showColour(colour);
     if (state.textinput) {
         state.textinput.style.color = colour;
         state.textinput.dataset.colour = colour;
+    }
+    const selected = selectedItem();
+    if (selected) {
+        // The colour picker fires continuously: trying colours on one annotation is one undo step.
+        if (state.recoloured !== selected.id) {
+            pushHistory();
+            state.recoloured = selected.id;
+        }
+        replaceItem({...selected, colour});
+        render();
     }
     saveOptions();
 };
 
 /**
- * Undo the last operation (a "clear" included).
+ * Undo the last change (a "clear" included).
  */
 const undo = () => {
     commitText();
-    state.ops.pop();
+    if (state.gesture || !state.history.length) {
+        return;
+    }
+    state.items = state.history.pop();
+    state.recoloured = null;
+    selectItem(selectedItem() ? state.selected : null);
     render();
 };
 
@@ -493,26 +706,49 @@ const undo = () => {
  */
 const clear = () => {
     commitText();
-    if (state.ops.length && state.ops[state.ops.length - 1].type !== 'clear') {
-        state.ops.push({type: 'clear'});
+    if (state.items.length) {
+        pushHistory();
+        state.items = [];
+        selectItem(null);
         render();
     }
 };
 
 /**
- * Wait for the capture stream to deliver a frame, or give up after a while
- * (a tab that is not changing may not produce new frames).
+ * Delete the selected annotation.
+ */
+const deleteSelected = () => {
+    pushHistory();
+    state.items = state.items.filter((item) => item.id !== state.selected);
+    selectItem(null);
+    render();
+};
+
+/**
+ * Wait for a frame captured after a given time, or give up after a while (a tab
+ * that is not changing may not produce new frames). The stream can lag well
+ * behind the page, so any older frame could still show the toolbar.
  *
  * @param {HTMLVideoElement} video
+ * @param {Number} since performance.now() time
  * @returns {Promise}
  */
-const nextVideoFrame = (video) => {
+const videoFrameAfter = (video, since) => {
     if (!video.requestVideoFrameCallback) {
         return delay(200);
     }
     return Promise.race([
-        new Promise((resolve) => video.requestVideoFrameCallback(() => resolve())),
-        delay(500),
+        new Promise((resolve) => {
+            const check = (now, metadata) => {
+                if ((metadata.captureTime || now) >= since) {
+                    resolve();
+                } else {
+                    video.requestVideoFrameCallback(check);
+                }
+            };
+            video.requestVideoFrameCallback(check);
+        }),
+        delay(2000),
     ]);
 };
 
@@ -567,12 +803,15 @@ const captureViewport = async() => {
 
     const root = state.root;
     const video = state.video;
+    closePages();
     root.classList.add('local_scribbles-capturing');
+    state.capturing = true;
+    render();
     try {
         // The first time, let the browser's share picker and banner settle.
         await delay(firstcapture ? 700 : 100);
         await nextPaint();
-        await nextVideoFrame(video);
+        await videoFrameAfter(video, performance.now());
         const shot = document.createElement('canvas');
         shot.width = video.videoWidth;
         shot.height = video.videoHeight;
@@ -580,6 +819,10 @@ const captureViewport = async() => {
         return shot;
     } finally {
         root.classList.remove('local_scribbles-capturing');
+        if (state) {
+            state.capturing = false;
+            render();
+        }
     }
 };
 
@@ -680,6 +923,177 @@ const download = () => runBusy('download', async() => {
 });
 
 /**
+ * The elements that scroll this Moodle page. Boost scrolls #page, other themes the window.
+ *
+ * @returns {Element[]} The window's scroller first
+ */
+const scrollers = () => [document.scrollingElement, document.getElementById('page')];
+
+/**
+ * The annotations as data to save: coordinates rounded, in-memory details left out.
+ *
+ * @returns {String} JSON
+ */
+const pageData = () => {
+    const round = (value) => Math.round(value * 10) / 10;
+    const items = state.items.map((item) => {
+        const saved = {...item};
+        delete saved.id;
+        delete saved.font;
+        ['x', 'y', 'x0', 'y0', 'x1', 'y1', 'fontsize'].filter((key) => key in saved).forEach((key) => {
+            saved[key] = round(saved[key]);
+        });
+        if (saved.points) {
+            saved.points = saved.points.map(([x, y]) => [round(x), round(y)]);
+        }
+        return saved;
+    });
+    const [windowscroller, pagescroller] = scrollers();
+    return JSON.stringify({
+        items,
+        scrolltop: windowscroller ? Math.round(windowscroller.scrollTop) : 0,
+        pagescrolltop: pagescroller ? Math.round(pagescroller.scrollTop) : 0,
+    });
+};
+
+/**
+ * Close the annotation pages panel.
+ */
+const closePages = () => {
+    state.root.querySelector(SELECTORS.PAGES).hidden = true;
+};
+
+/**
+ * Fill the annotation pages panel with the saved pages and show it.
+ *
+ * @returns {Promise}
+ */
+const showPages = async() => {
+    const panel = state.root.querySelector(SELECTORS.PAGES);
+    const {pages} = await Ajax.call([{methodname: 'local_scribbles_get_pages', args: {}}])[0];
+    const {html, js} = await Templates.renderForPromise('local_scribbles/pages_panel', {
+        name: state.pagename || document.title,
+        canupdate: !!state.pageid,
+        pages,
+        haspages: pages.length > 0,
+    });
+    Templates.replaceNodeContents(panel, html, js);
+    panel.style.top = `${state.root.querySelector(SELECTORS.TOOLBAR).getBoundingClientRect().bottom + 4}px`;
+    panel.hidden = false;
+    panel.querySelector('input').select();
+};
+
+/**
+ * Open or close the annotation pages panel: save this drawing, or open or delete a saved one.
+ */
+const togglePages = () => {
+    if (state.root.querySelector(SELECTORS.PAGES).hidden) {
+        runBusy('pages', showPages);
+    } else {
+        closePages();
+    }
+};
+
+/**
+ * Delete a saved annotation page, once confirmed. What is on screen stays, but
+ * saving it afterwards makes a new page, as the one it came from is gone.
+ *
+ * @param {HTMLElement} button The page's delete button
+ * @returns {Promise}
+ */
+const deletePage = async(button) => {
+    const id = Number(button.dataset.pageid);
+    // The dialogue body is HTML.
+    const name = document.createElement('span');
+    name.textContent = button.dataset.pagename;
+    try {
+        await Notification.deleteCancelPromise(
+            getString('delete', 'core'),
+            getString('confirmdeletepage', 'local_scribbles', name.innerHTML),
+            getString('delete', 'core')
+        );
+    } catch (error) {
+        return;
+    }
+    if (!state) {
+        return;
+    }
+    await runBusy('deletepage', async() => {
+        await Ajax.call([{methodname: 'local_scribbles_delete_page', args: {id}}])[0];
+        if (state.pageid === id) {
+            state.pageid = 0;
+            state.pagename = '';
+        }
+        await showPages();
+        await setStatus('pagedeleted');
+    });
+};
+
+/**
+ * Save the annotations as an annotation page.
+ *
+ * @param {Boolean} asnew Save a new page, even when one is open
+ */
+const savePage = (asnew) => {
+    commitText();
+    if (!state.items.length) {
+        setStatus('nothingtosave');
+        return;
+    }
+    const name = state.root.querySelector(`${SELECTORS.PAGES} input`).value;
+    runBusy('savepage', async() => {
+        const result = await Ajax.call([{
+            methodname: 'local_scribbles_save_page',
+            args: {
+                id: asnew ? 0 : state.pageid,
+                contextid: config.contextid,
+                pageurl: window.location.href,
+                pagetitle: document.title,
+                name,
+                data: pageData(),
+            },
+        }])[0];
+        state.pageid = result.id;
+        state.pagename = result.name;
+        closePages();
+        await setStatus('pagesaved');
+    });
+};
+
+/**
+ * Bring a saved annotation page back. Undo returns to what was drawn before.
+ *
+ * Scroll positions only mean something on the Moodle page it was drawn on.
+ *
+ * @param {Number} id
+ */
+const openPage = (id) => runBusy('openpage', async() => {
+    commitText();
+    const page = await Ajax.call([{methodname: 'local_scribbles_get_page', args: {id}}])[0];
+    const data = JSON.parse(page.data);
+    pushHistory();
+    selectItem(null);
+    state.items = data.items.map((item) => withId(item.type === 'text' ? {...item, font: state.font} : item));
+    state.pageid = page.id;
+    state.pagename = page.name;
+
+    const saved = new URL(page.pageurl || '/', window.location.href);
+    if (saved.pathname === window.location.pathname && saved.search === window.location.search) {
+        const [windowscroller, pagescroller] = scrollers();
+        if (windowscroller) {
+            windowscroller.scrollTop = data.scrolltop;
+        }
+        if (pagescroller) {
+            pagescroller.scrollTop = data.pagescrolltop;
+        }
+    }
+    closePages();
+    placeCloseButton();
+    render();
+    await setStatus('pageopened');
+});
+
+/**
  * Close the overlay and stop any capture.
  */
 const close = () => {
@@ -709,6 +1123,9 @@ const onToolbarClick = (e) => {
     const tool = e.target.closest(SELECTORS.TOOL);
     if (tool) {
         selectTool(tool.dataset.tool);
+        if (tool.dataset.tool === 'select') {
+            setStatus('selecthint');
+        }
         return;
     }
     const swatch = e.target.closest(SELECTORS.SWATCH);
@@ -720,7 +1137,17 @@ const onToolbarClick = (e) => {
     if (!action) {
         return;
     }
-    const actions = {undo, clear, download, save, close};
+    const actions = {
+        undo,
+        clear,
+        download,
+        save,
+        close,
+        pages: togglePages,
+        savepagenew: () => savePage(true),
+        openpage: () => openPage(Number(action.dataset.pageid)),
+        deletepage: () => deletePage(action),
+    };
     if (actions[action.dataset.action]) {
         e.preventDefault();
         actions[action.dataset.action]();
@@ -728,20 +1155,40 @@ const onToolbarClick = (e) => {
 };
 
 /**
- * Keyboard shortcuts: Escape closes, Ctrl/Cmd+Z undoes.
+ * Keyboard shortcuts: Escape steps back out (panel, then selection, then the
+ * overlay), Ctrl/Cmd+Z undoes, Delete removes the selected annotation.
  *
  * @param {KeyboardEvent} e
  */
 const onKeyDown = (e) => {
-    if (state.textinput && e.target === state.textinput) {
+    // An error dialogue sits above the overlay and handles its own keys.
+    if ((state.textinput && e.target === state.textinput) || e.target.closest('.modal')) {
         return;
     }
+    const panel = state.root.querySelector(SELECTORS.PAGES);
     if (e.key === 'Escape') {
         e.preventDefault();
-        close();
-    } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
+        if (!panel.hidden) {
+            closePages();
+            state.root.querySelector(SELECTORS.PAGESBUTTON).focus();
+        } else if (selectedItem()) {
+            selectItem(null);
+            render();
+        } else {
+            close();
+        }
+        return;
+    }
+    // Typing a page name must not change the drawing.
+    if (e.target.matches('input[type="text"]')) {
+        return;
+    }
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         undo();
+    } else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedItem()) {
+        e.preventDefault();
+        deleteSelected();
     }
 };
 
@@ -752,7 +1199,7 @@ const onKeyDown = (e) => {
  * @param {HTMLElement} trigger
  */
 const closeFooterPopover = (trigger) => {
-    if (!trigger.closest('.popover')) {
+    if (!trigger || !trigger.closest('.popover')) {
         return;
     }
     const button = document.querySelector('[data-action="footer-popover"]');
@@ -764,7 +1211,8 @@ const closeFooterPopover = (trigger) => {
 /**
  * Open the overlay.
  *
- * @param {HTMLElement} trigger The element that opened it, focused again on close
+ * @param {HTMLElement|null} trigger The element that opened it, focused again on close
+ * @returns {Promise}
  */
 const open = async(trigger) => {
     if (state) {
@@ -789,8 +1237,19 @@ const open = async(trigger) => {
             root,
             canvas,
             ctx: canvas.getContext('2d'),
-            ops: [],
+            items: [],
+            history: [],
+            nextid: 1,
             current: null,
+            gesture: null,
+            erasing: null,
+            selected: null,
+            selectmode: 'resize',
+            recoloured: null,
+            capturing: false,
+            pageid: 0,
+            pagename: '',
+            font: window.getComputedStyle(document.body).fontFamily || 'sans-serif',
             tool: 'pen',
             colour: '#e03131',
             size: 4,
@@ -802,7 +1261,10 @@ const open = async(trigger) => {
             statustimer: null,
             trigger,
             strings: {tooltext},
-            onResize: () => resizeCanvas(),
+            onResize: () => {
+                resizeCanvas();
+                placeCloseButton();
+            },
             onKeyDown,
         };
 
@@ -812,6 +1274,10 @@ const open = async(trigger) => {
         selectSize(options.size);
 
         root.addEventListener('click', onToolbarClick);
+        root.addEventListener('submit', (e) => {
+            e.preventDefault();
+            savePage(false);
+        });
         root.querySelector(SELECTORS.COLOURPICKER).addEventListener('input', (e) => selectColour(e.target.value));
         root.querySelector(SELECTORS.SIZE).addEventListener('input', (e) => selectSize(Number(e.target.value)));
         canvas.addEventListener('pointerdown', onPointerDown);
@@ -819,16 +1285,44 @@ const open = async(trigger) => {
         canvas.addEventListener('pointerup', onPointerUp);
         canvas.addEventListener('pointercancel', onPointerUp);
         // Annotations are pinned to the viewport, so the page must not scroll under them.
-        root.addEventListener('wheel', (e) => e.preventDefault(), {passive: false});
+        root.addEventListener('wheel', (e) => {
+            if (!e.target.closest(SELECTORS.PAGES)) {
+                e.preventDefault();
+            }
+        }, {passive: false});
         window.addEventListener('resize', state.onResize);
         document.addEventListener('keydown', onKeyDown);
 
         resizeCanvas();
+        placeCloseButton();
         root.querySelector(`${SELECTORS.TOOL}[aria-pressed="true"]`).focus();
     } catch (error) {
         Notification.exception(error);
     } finally {
         pending.resolve();
+    }
+};
+
+/**
+ * Open an annotation page when My scribbles linked here to bring it back, once
+ * the page has its full height, so that the scroll position can be restored.
+ */
+const openFromFragment = () => {
+    const match = OPEN_FRAGMENT.exec(window.location.hash);
+    if (!match) {
+        return;
+    }
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    const start = async() => {
+        await open(null);
+        if (state) {
+            await openPage(Number(match[1]));
+        }
+    };
+    if (document.readyState === 'complete') {
+        start();
+    } else {
+        window.addEventListener('load', start, {once: true});
     }
 };
 
@@ -854,4 +1348,5 @@ export const init = (pageconfig) => {
             open(trigger);
         }
     });
+    openFromFragment();
 };

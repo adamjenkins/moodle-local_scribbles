@@ -40,7 +40,7 @@ class save_screenshot extends external_api {
         return new external_function_parameters([
             'contextid' => new external_value(PARAM_INT, 'Context id of the page the screenshot was taken on'),
             'pageurl' => new external_value(PARAM_RAW, 'URL of the page', VALUE_DEFAULT, ''),
-            'pagetitle' => new external_value(PARAM_TEXT, 'Title of the page', VALUE_DEFAULT, ''),
+            'pagetitle' => new external_value(PARAM_RAW, 'Title of the page', VALUE_DEFAULT, ''),
             'image' => new external_value(PARAM_RAW, 'PNG or JPEG image as a data: URL or base64'),
         ]);
     }
@@ -70,10 +70,12 @@ class save_screenshot extends external_api {
             throw new \required_capability_exception($context, access::CAPABILITY, 'nopermissions', '');
         }
 
-        // Only links back into this site are kept.
-        $url = clean_param($params['pageurl'], PARAM_LOCALURL);
+        $url = manager::clean_page_url($params['pageurl']);
 
-        $record = manager::save((int) $USER->id, $context->id, $url, $params['pagetitle'], $params['image']);
+        // A title is free text and may hold a "<", which PARAM_TEXT would refuse as a parameter.
+        $title = clean_param($params['pagetitle'], PARAM_TEXT);
+
+        $record = manager::save((int) $USER->id, $context->id, $url, $title, $params['image']);
 
         return [
             'id' => (int) $record->id,

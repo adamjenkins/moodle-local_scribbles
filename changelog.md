@@ -4,7 +4,7 @@ All notable changes to this plugin are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [0.1.0] - Unreleased
+## [0.1.0] - 2026-11-04
 
 ### Added
 
@@ -15,6 +15,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Screenshots via browser tab capture: download as PNG, or save to the
   `local_scribbles` table and the user's file area, listed on
   `/local/scribbles/index.php`.
-- Capability `local/scribbles:use`, external function
-  `local_scribbles_save_screenshot`, privacy provider, and clean-up when a
-  user is deleted.
+- A select tool: move, resize, rotate, recolour and delete annotations after
+  drawing them, all undoable. The eraser removes whole annotations.
+- Annotation pages: save the annotations themselves (table
+  `local_scribbles_pages`) and open them again from the toolbar or My scribbles.
+  Delete them from the same list or from My scribbles.
+- The close button sits over the navbar button, which toggles scribbles.
+- Settings `maxscreenshots` and `maxpages`: how many each user may keep.
+- Capability `local/scribbles:use` (`RISK_PERSONAL`), external functions
+  `local_scribbles_save_screenshot`, `local_scribbles_save_page`,
+  `local_scribbles_delete_page`, `local_scribbles_get_pages` and
+  `local_scribbles_get_page`, privacy provider,
+  and clean-up when a user is deleted.
