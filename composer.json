@@ -1,0 +1,20 @@
+{
+    "name": "adamjenkins/moodle-local_scribbles",
+    "description": "Draw on any Moodle page, edit the annotations afterwards, save them as pages to reopen, or keep a screenshot.",
+    "type": "moodle-local",
+    "license": "GPL-3.0-or-later",
+    "authors": [
+        {
+            "name": "Adam Jenkins",
+            "email": "adam@wisecat.net"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/adamjenkins/moodle-local_scribbles/issues",
+        "source": "https://github.com/adamjenkins/moodle-local_scribbles"
+    },
+    "require": {
+        "moodle/moodle": ">=5.2 <5.4",
+        "moodle/composer-installer": "^1.0"
+    }
+}

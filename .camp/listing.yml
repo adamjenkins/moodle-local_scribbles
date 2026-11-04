@@ -1,0 +1,32 @@
+# camp listing manifest — descriptive content for your plugin's page.
+# Edit freely and commit; camp ingests this file at each tagged release.
+# Schema: https://camp-registry.org/schema/listing.schema.json
+name: local_scribbles
+summary: 'Draw on any Moodle page with pen, highlighter, text, box and ellipse tools, edit the annotations afterwards, save them as pages to reopen, or keep a screenshot.'
+description: |
+  A button next to the edit mode switch opens a transparent drawing layer over
+  the page, and the same spot closes it. Annotations stay editable: select one
+  to move, resize, rotate, recolour or delete it, with undo throughout. Save
+  the annotations as an annotation page and open it again later to carry on
+  editing, or download a screenshot or save it to My scribbles. Each person
+  sees only their own saved items, and administrators set how many each user
+  may keep. Screenshots use the browser's own screen capture, so they need an
+  HTTPS site. It changes no core code and needs no external services.
+labels:
+  # Required disclosure labels — pick all that apply (RFC §4.7):
+  #   fully-free | freemium | paid-service | external-account
+  #   donation-supported | commercial-support-available
+  - fully-free
+screenshots:
+  - path: .camp/screenshots/01-annotate-course-page.png
+    caption: 'A course page annotated with the drawing tools. The X over the button that opened scribbles closes it.'
+  - path: .camp/screenshots/02-select-and-resize.png
+    caption: 'The select tool: click an annotation for its corner handles, then drag to move or resize it.'
+  - path: .camp/screenshots/03-rotate.png
+    caption: 'Click a selected annotation again for rotate handles. Here a text note has been turned.'
+  - path: .camp/screenshots/04-annotation-pages.png
+    caption: 'Annotation pages: name and save the annotations, then open or delete saved ones.'
+  - path: .camp/screenshots/05-my-scribbles.png
+    caption: "My scribbles: a person's own annotation pages and saved screenshots."
+  - path: .camp/screenshots/06-admin-settings.png
+    caption: 'The settings: where the button appears, and how many items each user may keep.'
