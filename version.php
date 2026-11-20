@@ -25,8 +25,8 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_scribbles';
-$plugin->version   = 2026110404;
-$plugin->requires  = 2026042000;
-$plugin->supported = [502, 503];
+$plugin->version   = 2026112000;
+$plugin->requires  = 2025100600;
+$plugin->supported = [501, 503];
 $plugin->release   = '0.1.1';
 $plugin->maturity  = MATURITY_BETA;

@@ -42,6 +42,12 @@ class pages {
     /** @var string[] Annotations drawn between two corners. */
     private const SHAPES = ['box', 'ellipse'];
 
+    /** @var string[] Broken glass, drawn between two corners from a random seed. */
+    private const GLASS = ['smash', 'shot'];
+
+    /** @var int Largest seed of a glass annotation. */
+    private const MAX_SEED = 2147483647;
+
     /** @var float Largest coordinate accepted, in pixels. */
     private const MAX_COORDINATE = 1000000.0;
 
@@ -156,10 +162,17 @@ class pages {
             }
             $clean['size'] = self::size($item['size'] ?? null);
             $clean['points'] = array_map([self::class, 'point'], array_values($item['points']));
-        } else if (in_array($item['type'], self::SHAPES, true)) {
+        } else if (in_array($item['type'], self::SHAPES, true) || in_array($item['type'], self::GLASS, true)) {
             $clean['size'] = self::size($item['size'] ?? null);
             foreach (['x0', 'y0', 'x1', 'y1'] as $key) {
                 $clean[$key] = self::number($item[$key] ?? null);
+            }
+            if (in_array($item['type'], self::GLASS, true)) {
+                $seed = $item['seed'] ?? null;
+                if (!is_int($seed) || $seed < 0 || $seed > self::MAX_SEED) {
+                    throw new \moodle_exception('errorinvalidpage', 'local_scribbles');
+                }
+                $clean['seed'] = $seed;
             }
         } else if ($item['type'] === 'text') {
             $text = $item['text'] ?? null;

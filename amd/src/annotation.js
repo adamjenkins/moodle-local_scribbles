@@ -27,6 +27,8 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+import {GLASS, drawGlass} from 'local_scribbles/glass';
+
 /** @var {Number} Smallest width or height a resize can leave, in CSS pixels. */
 const MIN_RESIZED = 8;
 
@@ -106,7 +108,7 @@ export const centreOf = (ctx, item) => {
  * @returns {Number}
  */
 const halfWidth = (item) => {
-    if (item.type === 'text') {
+    if (item.type === 'text' || GLASS.includes(item.type)) {
         return 0;
     }
     return item.type === 'highlighter' ? item.size * 2 : item.size / 2;
@@ -187,6 +189,10 @@ export const drawItem = (ctx, item) => {
             });
             break;
         }
+        case 'smash':
+        case 'shot':
+            drawGlass(ctx, item, boundsOf(ctx, item));
+            break;
     }
     ctx.restore();
 };
@@ -254,6 +260,15 @@ export const hitItem = (ctx, item, x, y, tolerance) => {
             const dy = py - (bounds.miny + bounds.maxy) / 2;
             const scale = Math.hypot(dx / rx, dy / ry);
             return scale === 0 ? Math.min(rx, ry) <= reach : Math.abs(1 - 1 / scale) * Math.hypot(dx, dy) <= reach;
+        }
+        case 'smash':
+        case 'shot': {
+            // Anywhere on the cracked circle, not in the empty corners of its box.
+            const rx = Math.max((bounds.maxx - bounds.minx) / 2, 1);
+            const ry = Math.max((bounds.maxy - bounds.miny) / 2, 1);
+            const dx = (px - (bounds.minx + bounds.maxx) / 2) / (rx + reach);
+            const dy = (py - (bounds.miny + bounds.maxy) / 2) / (ry + reach);
+            return Math.hypot(dx, dy) <= 1;
         }
         default:
             return true;
