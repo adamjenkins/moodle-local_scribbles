@@ -39,8 +39,13 @@ class save_screenshot extends external_api {
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
             'contextid' => new external_value(PARAM_INT, 'Context id of the page the screenshot was taken on'),
+            // PARAM_RAW: cleaned with PARAM_LOCALURL in manager::clean_page_url(), which keeps the save and
+            // stores '' for a foreign URL, where a PARAM_LOCALURL parameter would refuse the whole save.
             'pageurl' => new external_value(PARAM_RAW, 'URL of the page', VALUE_DEFAULT, ''),
+            // PARAM_RAW: free text that may hold a "<", which a PARAM_TEXT parameter would refuse;
+            // cleaned with clean_param(PARAM_TEXT) in execute() and escaped by the templates.
             'pagetitle' => new external_value(PARAM_RAW, 'Title of the page', VALUE_DEFAULT, ''),
+            // PARAM_RAW: base64 data, decoded and checked to be a PNG or JPEG in manager::save() before storing.
             'image' => new external_value(PARAM_RAW, 'PNG or JPEG image as a data: URL or base64'),
         ]);
     }

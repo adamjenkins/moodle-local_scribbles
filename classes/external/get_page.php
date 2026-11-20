@@ -74,7 +74,10 @@ class get_page extends external_api {
         return new external_single_structure([
             'id' => new external_value(PARAM_INT, 'Id of the annotation page'),
             'name' => new external_value(PARAM_TEXT, 'Name of the annotation page'),
+            // PARAM_RAW: stored already cleaned to a local URL, and an address saved before the site moved to
+            // another wwwroot would make a PARAM_LOCALURL return value throw, so the page could never be opened.
             'pageurl' => new external_value(PARAM_RAW, 'URL of the Moodle page it was drawn on'),
+            // PARAM_RAW: the JSON stored by pages::clean_data(), parsed by the browser, never put into HTML.
             'data' => new external_value(PARAM_RAW, 'The annotations as JSON'),
         ]);
     }

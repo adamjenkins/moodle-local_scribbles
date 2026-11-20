@@ -41,9 +41,14 @@ class save_page extends external_api {
         return new external_function_parameters([
             'id' => new external_value(PARAM_INT, 'Annotation page to update, 0 for a new one', VALUE_DEFAULT, 0),
             'contextid' => new external_value(PARAM_INT, 'Context id of the Moodle page it is drawn on'),
+            // PARAM_RAW: cleaned with PARAM_LOCALURL in manager::clean_page_url(), which keeps the save and
+            // stores '' for a foreign URL, where a PARAM_LOCALURL parameter would refuse the whole save.
             'pageurl' => new external_value(PARAM_RAW, 'URL of the Moodle page', VALUE_DEFAULT, ''),
+            // PARAM_RAW: free text that may hold a "<", which a PARAM_TEXT parameter would refuse;
+            // cleaned with clean_param(PARAM_TEXT) in execute() and escaped by the templates.
             'pagetitle' => new external_value(PARAM_RAW, 'Title of the Moodle page', VALUE_DEFAULT, ''),
             'name' => new external_value(PARAM_RAW, 'Name for the annotation page', VALUE_DEFAULT, ''),
+            // PARAM_RAW: JSON, checked and rebuilt field by field in pages::clean_data(); only drawn on a canvas.
             'data' => new external_value(PARAM_RAW, 'The annotations as JSON'),
         ]);
     }
