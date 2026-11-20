@@ -14,7 +14,7 @@
         "source": "https://github.com/adamjenkins/moodle-local_scribbles"
     },
     "require": {
-        "moodle/moodle": ">=5.2 <5.4",
+        "moodle/moodle": ">=5.1 <5.4",
         "moodle/composer-installer": "^1.0"
     }
 }

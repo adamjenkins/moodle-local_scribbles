@@ -72,7 +72,7 @@ the limits, or set 0 for none, at *Site administration → Plugins → Local plu
 
 ## Requirements
 
-- Moodle 5.2 (`2026042000`) or later.
+- Moodle 5.1 (`2025100600`) or later.
 - A browser with `getDisplayMedia` for screenshots. Drawing works in every
   modern browser.
 
