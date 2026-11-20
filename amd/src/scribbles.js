@@ -42,6 +42,7 @@ import {
     resizeItem,
     textSize,
 } from 'local_scribbles/annotation';
+import {newSeed, radiusOf} from 'local_scribbles/glass';
 import Ajax from 'core/ajax';
 import Notification from 'core/notification';
 import Pending from 'core/pending';
@@ -72,13 +73,25 @@ const MAX_UPLOAD_LENGTH = 6 * 1024 * 1024;
 const FREEHAND = ['pen', 'highlighter'];
 
 /** @var {String[]} Every tool. */
-const TOOLS = ['select', 'pen', 'highlighter', 'text', 'box', 'ellipse', 'eraser'];
+const TOOLS = ['select', 'pen', 'highlighter', 'text', 'box', 'ellipse', 'hammer', 'gun', 'eraser'];
+
+/** @var {Object} Tools that break the glass with a click, and the annotation type each leaves. */
+const IMPACTS = {hammer: 'smash', gun: 'shot'};
 
 /** @var {String} localStorage key of the remembered tool, colour and size. */
 const STORAGE_KEY = 'local_scribbles/options';
 
 /** @var {Object} Options used when nothing valid is remembered. */
 const DEFAULT_OPTIONS = {tool: 'pen', colour: '#e03131', size: 4};
+
+/** @var {Number} How long the screen shakes after a hammer blow or a shot, in milliseconds. */
+const SHAKE_MS = 450;
+
+/** @var {Number} How far the screen moves at the start of a shake, in CSS pixels. */
+const SHAKE_PX = 9;
+
+/** @var {String} Fixed parts of the page (Boost's navbar and drawers) that shake with it. */
+const FIXED_LAYERS = '.fixed-top, .drawer';
 
 /** @var {Number} How far the pointer must move before a press counts as a drag, in CSS pixels. */
 const DRAG_THRESHOLD = 3;
@@ -480,6 +493,65 @@ const eraseAlong = (from, to) => {
 };
 
 /**
+ * Stop a shake of the screen, if one is running, and put the page back as it was.
+ */
+const stopShake = () => {
+    if (!state || !state.shaking) {
+        return;
+    }
+    const {animations, saved} = state.shaking;
+    state.shaking = null;
+    animations.forEach((animation) => animation.cancel());
+    Object.assign(document.documentElement.style, saved);
+};
+
+/**
+ * Shake the screen for a moment, as a hammer blow or a shot would. Skipped for people who
+ * ask their system for reduced motion.
+ *
+ * The page shakes by a relative offset of the root element, not a transform: a
+ * transform there would make fixed elements position against the document, so on
+ * a scrolled page the overlay would jump out of view. Fixed layers, the overlay
+ * itself included, shake with a transform of their own. Horizontal overflow is
+ * hidden meanwhile so the offset cannot flash a scrollbar.
+ */
+const shake = () => {
+    const page = document.documentElement;
+    if (!page.animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        return;
+    }
+    stopShake();
+    const steps = 9;
+    const offsets = [];
+    for (let i = 0; i < steps; i++) {
+        const strength = SHAKE_PX * (1 - i / steps);
+        // Mostly upwards: moving the page down could add a vertical scrollbar to a short page.
+        offsets.push([(Math.random() * 2 - 1) * strength, (Math.random() * 1.25 - 1) * strength]);
+    }
+    offsets.push([0, 0]);
+    const timing = {duration: SHAKE_MS, easing: 'ease-out'};
+
+    const saved = {position: page.style.position, overflowX: page.style.overflowX};
+    page.style.position = 'relative';
+    page.style.overflowX = 'hidden';
+    const animations = [page.animate(offsets.map(([x, y]) => ({left: `${x}px`, top: `${y}px`})), timing)];
+    [state.root, ...document.querySelectorAll(FIXED_LAYERS)].forEach((layer) => {
+        animations.push(layer.animate(offsets.map(([x, y]) => ({transform: `translate(${x}px, ${y}px)`})), timing));
+    });
+
+    const shaking = {animations, saved};
+    state.shaking = shaking;
+    animations[0].finished.then(() => {
+        if (state && state.shaking === shaking) {
+            stopShake();
+        }
+        return null;
+    }).catch(() => {
+        // Cancelled by a newer shake, a screenshot or closing scribbles, which tidied up already.
+    });
+};
+
+/**
  * Start drawing, erasing or editing.
  *
  * @param {PointerEvent} e
@@ -507,6 +579,19 @@ const onPointerDown = (e) => {
     if (state.tool === 'eraser') {
         state.erasing = [x, y];
         eraseAlong([x, y], [x, y]);
+        return;
+    }
+    if (IMPACTS[state.tool]) {
+        // One break per click, centred where it lands and sized by the brush size.
+        const type = IMPACTS[state.tool];
+        const r = radiusOf(type, state.size);
+        pushHistory();
+        state.items = [...state.items, withId({
+            type, colour: state.colour, size: state.size, seed: newSeed(),
+            x0: x - r, y0: y - r, x1: x + r, y1: y + r,
+        })];
+        render();
+        shake();
         return;
     }
     const base = {type: state.tool, colour: state.colour, size: state.size};
@@ -804,6 +889,7 @@ const captureViewport = async() => {
     const root = state.root;
     const video = state.video;
     closePages();
+    stopShake();
     root.classList.add('local_scribbles-capturing');
     state.capturing = true;
     render();
@@ -1105,6 +1191,7 @@ const close = () => {
         stream.getTracks().forEach((track) => track.stop());
     }
     clearTimeout(state.statustimer);
+    stopShake();
     window.removeEventListener('resize', onResize);
     document.removeEventListener('keydown', onKeyDown);
     state = null;
@@ -1247,6 +1334,7 @@ const open = async(trigger) => {
             selectmode: 'resize',
             recoloured: null,
             capturing: false,
+            shaking: null,
             pageid: 0,
             pagename: '',
             font: window.getComputedStyle(document.body).fontFamily || 'sans-serif',

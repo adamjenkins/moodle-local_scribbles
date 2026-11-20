@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Hammer and gun tools: a click smashes the screen like broken glass or shoots a
+  bullet hole in it. Both shake the screen briefly, except with reduced
+  motion. Each break is stored as a `smash` or `shot` annotation with
+  two corners and a random `seed`, so it looks the same when an annotation page
+  is opened again.
+
 ### Changed
 
 - Supports Moodle 5.1 as well (requires `2025100600`, supported 5.1 to 5.3).

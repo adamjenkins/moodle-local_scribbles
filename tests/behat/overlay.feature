@@ -54,6 +54,24 @@ Feature: Draw, edit and save annotations
     And "[data-region='pages']" "css_element" should not be visible
     And the first annotation of the page "Rotated" should be rotated
 
+  Scenario: The hammer and the gun break the glass where they hit, and can be moved
+    When I click on "button[data-tool='gun']" "css_element"
+    And I click on the scribbles canvas at 400,300
+    Then the scribbles canvas should have annotations on it
+    And I click on "button[data-tool='hammer']" "css_element"
+    And I click on the scribbles canvas at 700,400
+    And I click on "button[data-tool='select']" "css_element"
+    And I drag on the scribbles canvas from 400,300 to 420,330
+    And I click on "[data-action='pages']" "css_element"
+    And I set the field with xpath "//input[@id='local_scribbles-pagename']" to "Broken"
+    And I click on "[data-region='pages'] button[type='submit']" "css_element"
+    And "[data-region='pages']" "css_element" should not be visible
+    And the first annotation of the page "Broken" should have type "shot"
+    # At the default size 4 a bullet hole has a radius of 100 pixels, and it was moved by 20,30.
+    And the first annotation of the page "Broken" should have x0 "320"
+    And the first annotation of the page "Broken" should have y0 "230"
+    And the first annotation of the page "Broken" should have x1 "520"
+
   Scenario: An annotation page comes back and can be deleted from the overlay
     Given the following "local_scribbles > pages" exist:
       | user     | name       |

@@ -248,8 +248,29 @@ final class pages_test extends \advanced_testcase {
             'empty stroke' => $encode(['type' => 'pen', 'colour' => '#000000', 'size' => 2, 'points' => []]),
             'bad point' => $encode(['type' => 'pen', 'colour' => '#000000', 'size' => 2, 'points' => [[1]]]),
             'empty text' => $encode(['type' => 'text', 'colour' => '#000000', 'fontsize' => 9, 'x' => 1, 'y' => 1, 'text' => '']),
+            'glass without a seed' => $encode(['type' => 'smash'] + $valid),
+            'glass seed not an integer' => $encode(['type' => 'shot', 'seed' => '12'] + $valid),
+            'glass seed out of range' => $encode(['type' => 'shot', 'seed' => -1] + $valid),
             'zero font' => $encode(['type' => 'text', 'colour' => '#000000', 'fontsize' => 0, 'x' => 1, 'y' => 1, 'text' => 'a']),
         ];
+    }
+
+    /**
+     * Hammer and gun breaks keep their corners and seed, so they look the same when opened again.
+     */
+    public function test_glass(): void {
+        $items = [
+            ['type' => 'smash', 'colour' => '#E03131', 'size' => 4, 'seed' => 123456789,
+                'x0' => 10, 'y0' => 20, 'x1' => 410, 'y1' => 420, 'angle' => 0.25],
+            ['type' => 'shot', 'colour' => '#000000', 'size' => 20, 'seed' => 0,
+                'x0' => 1.5, 'y0' => 2, 'x1' => 201.5, 'y1' => 202],
+        ];
+        $clean = json_decode(pages::clean_data(json_encode(['items' => $items])), true);
+
+        $this->assertSame(['type' => 'smash', 'colour' => '#e03131', 'angle' => 0.25, 'size' => 4,
+            'x0' => 10, 'y0' => 20, 'x1' => 410, 'y1' => 420, 'seed' => 123456789], $clean['items'][0]);
+        $this->assertSame(0, $clean['items'][1]['seed']);
+        $this->assertSame(1.5, $clean['items'][1]['x0']);
     }
 
     /**

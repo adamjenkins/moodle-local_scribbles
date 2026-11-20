@@ -10,8 +10,13 @@ downloaded or saved to the teacher's "My scribbles" page.
 
 - **Button next to the edit mode switch**, or a link in the footer help (?)
   menu, or both (*Site administration → Plugins → Local plugins → Scribbles*).
-- **Tools**: select, pen, highlighter, text, box, ellipse and eraser (which
-  removes each annotation it touches). Six preset
+- **Tools**: select, pen, highlighter, text, box, ellipse, hammer, gun and
+  eraser (which removes each annotation it touches). Click with the hammer to
+  smash the screen like broken glass, or with the gun to leave a bullet hole in
+  it. Either way the screen shakes for a moment, unless the system is set to
+  reduce motion. The size slider sets how big the break is. Breaks are drawn in white with a
+  dark edge, whatever colour is picked, and can be moved, resized, rotated and
+  deleted like any other annotation. Six preset
   colours and a custom colour picker, a size slider, undo (Ctrl/Cmd+Z) and
   clear all (which undo also reverses). Hold Shift with box or ellipse to draw
   a square or a circle. The last tool, colour and size are remembered in the
