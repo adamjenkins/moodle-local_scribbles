@@ -167,6 +167,12 @@ export const drawItem = (ctx, item) => {
             ctx.lineWidth = item.size * 4;
             strokePoints(ctx, item.points);
             break;
+        case 'line':
+            ctx.beginPath();
+            ctx.moveTo(item.x0, item.y0);
+            ctx.lineTo(item.x1, item.y1);
+            ctx.stroke();
+            break;
         case 'box':
             ctx.strokeRect(Math.min(item.x0, item.x1), Math.min(item.y0, item.y1),
                 Math.abs(item.x1 - item.x0), Math.abs(item.y1 - item.y0));
@@ -221,7 +227,8 @@ const toLocal = (ctx, item, x, y) => (item.angle ? rotatePoint([x, y], centreOf(
 
 /**
  * Whether a point touches what is drawn. Boxes and ellipses are outlines, so
- * another annotation inside one can still be reached.
+ * another annotation inside one can still be reached, and a line is only its
+ * own length, not the box around it.
  *
  * @param {CanvasRenderingContext2D} ctx
  * @param {Object} item
@@ -244,6 +251,8 @@ export const hitItem = (ctx, item, x, y, tolerance) => {
                 const next = item.points[Math.min(i + 1, item.points.length - 1)];
                 return distanceToSegment(px, py, point, next) <= reach;
             });
+        case 'line':
+            return distanceToSegment(px, py, [item.x0, item.y0], [item.x1, item.y1]) <= reach;
         case 'box':
             // Inside the outer edge (checked above), so only the inner edge is left.
             return Math.min(px - bounds.minx, bounds.maxx - px, py - bounds.miny, bounds.maxy - py) <= reach;

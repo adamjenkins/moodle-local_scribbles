@@ -41,6 +41,7 @@ final class pages_test extends \advanced_testcase {
         return [
             ['type' => 'pen', 'colour' => '#E03131', 'size' => 4, 'points' => [[1, 2], [3.5, 4]], 'angle' => 0.5],
             ['type' => 'highlighter', 'colour' => '#ffe066', 'size' => 8, 'points' => [[5, 6]]],
+            ['type' => 'line', 'colour' => '#e03131', 'size' => 3, 'x0' => 30, 'y0' => 2, 'x1' => 1, 'y1' => 40],
             ['type' => 'box', 'colour' => '#1971c2', 'size' => 2, 'x0' => 1, 'y0' => 2, 'x1' => 30, 'y1' => 40],
             ['type' => 'ellipse', 'colour' => '#2f9e44', 'size' => 2, 'x0' => 1, 'y0' => 2, 'x1' => 30, 'y1' => 40],
             ['type' => 'text', 'colour' => '#212529', 'fontsize' => 18.5, 'x' => 7, 'y' => 8, 'text' => "a < b\n<b>c</b>"],
@@ -89,11 +90,16 @@ final class pages_test extends \advanced_testcase {
 
         $page = external_api::clean_returnvalue(get_page::execute_returns(), get_page::execute($saved['id']));
         $data = json_decode($page['data'], true);
-        $this->assertCount(5, $data['items']);
+        $this->assertCount(6, $data['items']);
         $this->assertSame('#e03131', $data['items'][0]['colour']);
         $this->assertSame(0.5, $data['items'][0]['angle']);
         $this->assertSame([[1, 2], [3.5, 4]], $data['items'][0]['points']);
-        $this->assertSame("a < b\n<b>c</b>", $data['items'][4]['text']);
+        // A line keeps which end is which.
+        $this->assertSame(
+            ['type' => 'line', 'colour' => '#e03131', 'size' => 3, 'x0' => 30, 'y0' => 2, 'x1' => 1, 'y1' => 40],
+            $data['items'][2]
+        );
+        $this->assertSame("a < b\n<b>c</b>", $data['items'][5]['text']);
         $this->assertSame(10, $data['scrolltop']);
         $this->assertSame(20, $data['pagescrolltop']);
     }

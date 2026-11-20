@@ -39,8 +39,8 @@ class pages {
     /** @var string[] Annotations drawn as a freehand stroke. */
     private const STROKES = ['pen', 'highlighter'];
 
-    /** @var string[] Annotations drawn between two corners. */
-    private const SHAPES = ['box', 'ellipse'];
+    /** @var string[] Annotations drawn between two points: the corners of a box or ellipse, or the ends of a line. */
+    private const SHAPES = ['line', 'box', 'ellipse'];
 
     /** @var float Largest coordinate accepted, in pixels. */
     private const MAX_COORDINATE = 1000000.0;

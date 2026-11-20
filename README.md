@@ -10,11 +10,12 @@ downloaded or saved to the teacher's "My scribbles" page.
 
 - **Button next to the edit mode switch**, or a link in the footer help (?)
   menu, or both (*Site administration → Plugins → Local plugins → Scribbles*).
-- **Tools**: select, pen, highlighter, text, box, ellipse and eraser (which
+- **Tools**: select, pen, highlighter, text, straight line, box, ellipse and eraser (which
   removes each annotation it touches). Six preset
   colours and a custom colour picker, a size slider, undo (Ctrl/Cmd+Z) and
   clear all (which undo also reverses). Hold Shift with box or ellipse to draw
-  a square or a circle. The last tool, colour and size are remembered in the
+  a square or a circle, or with the line to keep it horizontal, vertical or at
+  45 degrees. The last tool, colour and size are remembered in the
   browser (localStorage) from page to page.
 - **Edit annotations** with the select tool: click one to select it, drag it to
   move it, drag a corner to resize it, or pick a colour to recolour it. Click it

@@ -4,6 +4,15 @@ All notable changes to this plugin are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Added
+
+- Straight line tool (issue #2): drag to draw a line between two points; hold
+  Shift to keep it horizontal, vertical or at 45 degrees. Lines can be
+  selected, moved, resized, rotated, recoloured and saved in annotation pages
+  like the other shapes.
+
 ## [0.1.1] - 2026-11-04
 
 ### Added

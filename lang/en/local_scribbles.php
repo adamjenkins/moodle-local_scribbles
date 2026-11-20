@@ -101,6 +101,7 @@ $string['toolbox'] = 'Box';
 $string['toolellipse'] = 'Ellipse';
 $string['tooleraser'] = 'Eraser: removes each annotation it touches';
 $string['toolhighlighter'] = 'Highlighter';
+$string['toolline'] = 'Straight line';
 $string['toolpen'] = 'Pen';
 $string['tools'] = 'Drawing tools';
 $string['toolselect'] = 'Select and edit';

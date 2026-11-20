@@ -72,7 +72,7 @@ const MAX_UPLOAD_LENGTH = 6 * 1024 * 1024;
 const FREEHAND = ['pen', 'highlighter'];
 
 /** @var {String[]} Every tool. */
-const TOOLS = ['select', 'pen', 'highlighter', 'text', 'box', 'ellipse', 'eraser'];
+const TOOLS = ['select', 'pen', 'highlighter', 'text', 'line', 'box', 'ellipse', 'eraser'];
 
 /** @var {String} localStorage key of the remembered tool, colour and size. */
 const STORAGE_KEY = 'local_scribbles/options';
@@ -544,7 +544,14 @@ const onPointerMove = (e) => {
         (events.length ? events : [e]).forEach((ev) => op.points.push(pointOf(ev)));
     } else {
         let [x, y] = [px, py];
-        if (e.shiftKey) {
+        if (e.shiftKey && op.type === 'line') {
+            // Shift keeps a line horizontal, vertical or at 45 degrees.
+            const step = Math.PI / 4;
+            const angle = Math.round(Math.atan2(y - op.y0, x - op.x0) / step) * step;
+            const length = Math.hypot(x - op.x0, y - op.y0);
+            x = op.x0 + Math.cos(angle) * length;
+            y = op.y0 + Math.sin(angle) * length;
+        } else if (e.shiftKey) {
             // Shift draws a square or a circle.
             const side = Math.max(Math.abs(x - op.x0), Math.abs(y - op.y0));
             x = op.x0 + Math.sign(x - op.x0 || 1) * side;

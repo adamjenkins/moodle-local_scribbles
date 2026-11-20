@@ -54,6 +54,24 @@ Feature: Draw, edit and save annotations
     And "[data-region='pages']" "css_element" should not be visible
     And the first annotation of the page "Rotated" should be rotated
 
+  Scenario: Draw a straight line and move it by grabbing the line itself
+    When I click on "button[data-tool='line']" "css_element"
+    And I drag on the scribbles canvas from 300,300 to 500,500
+    And I click on "button[data-tool='select']" "css_element"
+    # Inside the box around the line but away from the line: nothing to grab.
+    And I drag on the scribbles canvas from 300,480 to 350,480
+    # On the line: it is selected and moved.
+    And I drag on the scribbles canvas from 400,400 to 450,400
+    And I click on "[data-action='pages']" "css_element"
+    And I set the field with xpath "//input[@id='local_scribbles-pagename']" to "Line"
+    And I click on "[data-region='pages'] button[type='submit']" "css_element"
+    And "[data-region='pages']" "css_element" should not be visible
+    Then the first annotation of the page "Line" should have type "line"
+    And the first annotation of the page "Line" should have x0 "350"
+    And the first annotation of the page "Line" should have y0 "300"
+    And the first annotation of the page "Line" should have x1 "550"
+    And the first annotation of the page "Line" should have y1 "500"
+
   Scenario: An annotation page comes back and can be deleted from the overlay
     Given the following "local_scribbles > pages" exist:
       | user     | name       |
