@@ -4,7 +4,7 @@ All notable changes to this plugin are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased]
+## [0.1.2] - 2026-11-20
 
 ### Added
 
@@ -12,6 +12,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   Shift to keep it horizontal, vertical or at 45 degrees. Lines can be
   selected, moved, resized, rotated, recoloured and saved in annotation pages
   like the other shapes.
+
+### Changed
+
+- Each web service parameter and return value read as `PARAM_RAW` now says in
+  the code why it is raw and where it is cleaned. No change in behaviour.
 
 ## [0.1.1] - 2026-11-04
 

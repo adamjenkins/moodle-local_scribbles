@@ -1,6 +1,8 @@
 # Changes
 
-## v0.1.1
+## v0.1.2
 
-- Can now be installed from Packagist and camp: adds `composer.json` and the camp
-  listing. The plugin itself works exactly as in 0.1.0.
+- New straight line tool: drag to draw a line between two points, and hold Shift
+  to keep it horizontal, vertical or at 45 degrees. A line is selected by
+  clicking the line itself, and can be moved, resized, rotated, recoloured and
+  saved in annotation pages like the other shapes (issue #2).

@@ -2,7 +2,7 @@
 # Edit freely and commit; camp ingests this file at each tagged release.
 # Schema: https://camp-registry.org/schema/listing.schema.json
 name: local_scribbles
-summary: 'Draw on any Moodle page with pen, highlighter, text, box and ellipse tools, edit the annotations afterwards, save them as pages to reopen, or keep a screenshot.'
+summary: 'Draw on any Moodle page with pen, highlighter, text, line, box and ellipse tools, edit the annotations afterwards, save them as pages to reopen, or keep a screenshot.'
 description: |
   A button next to the edit mode switch opens a transparent drawing layer over
   the page, and the same spot closes it. Annotations stay editable: select one
